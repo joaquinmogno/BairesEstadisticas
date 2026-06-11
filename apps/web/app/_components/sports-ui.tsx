@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import {
   Bell,
@@ -47,6 +47,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { data, loading, error } = useBairesData();
+  const pathname = usePathname();
 
   useEffect(() => {
     const stored = localStorage.getItem("theme");
@@ -70,19 +71,20 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl dark:border-white/10 dark:bg-[#111820]/90">
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex min-w-0 items-center gap-3">
-            <span className="flex h-11 w-[120px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-black/90 px-1 shadow-sm dark:bg-black">
-              <Image src="/baires-torneos-logo.png" alt="Baires Torneos" width={120} height={54} priority className="h-full w-full object-contain" />
+            <span className="flex h-12 w-[138px] shrink-0 items-center justify-center overflow-hidden rounded-xl bg-black/90 px-2 shadow-sm dark:bg-black sm:w-[150px]">
+              <Image src="/baires-torneos-logo.png" alt="Baires Torneos" width={150} height={60} priority className="h-full w-full object-contain" />
             </span>
             <span className="min-w-0">
               <span className="block truncate text-lg font-black tracking-tight">Baires Torneos</span>
-              <span className="hidden text-xs font-bold text-slate-500 dark:text-slate-400 sm:block">Live center amateur</span>
             </span>
           </Link>
 
-          <div className="ml-auto hidden h-10 min-w-0 max-w-md flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 md:flex">
-            <Search size={17} />
-            <span className="truncate">Buscar equipo, jugador, torneo o partido</span>
-          </div>
+          {pathname !== "/" ? (
+            <div className="ml-auto hidden h-10 min-w-0 max-w-md flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 md:flex">
+              <Search size={17} />
+              <span className="truncate">Buscar equipo, jugador, torneo o partido</span>
+            </div>
+          ) : null}
 
           <IconButton label={menuOpen ? "Cerrar menu" : "Abrir menu"} onClick={() => setMenuOpen((value) => !value)}>
             {menuOpen ? <X size={18} /> : <Menu size={18} />}
@@ -140,11 +142,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                   onClick={() => setMenuOpen(false)}
                   className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-900 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-400/20 dark:text-emerald-300">
                     {tournament.logo ? (
-                      <Image src={tournament.logo} alt={tournament.name} width={40} height={40} unoptimized className="h-full w-full object-cover" />
+                      <Image src={tournament.logo} alt={tournament.name} width={44} height={44} unoptimized className="h-full w-full object-cover" />
                     ) : (
-                      <Trophy size={18} />
+                      <Image src="/baires-torneos-logo.png" alt="Baires Torneos" width={44} height={44} className="h-full w-full object-cover" />
                     )}
                   </span>
                   <span className="min-w-0">
