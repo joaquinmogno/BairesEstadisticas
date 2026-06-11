@@ -32,8 +32,6 @@ services:
       API_PUBLIC_URL: ${API_PUBLIC_URL:?set API_PUBLIC_URL}
       ADMIN_EMAIL: ${ADMIN_EMAIL:?set ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD}
-    ports:
-      - "4000:4000"
     volumes:
       - backend_uploads:/app/backend/uploads
     depends_on:
@@ -52,8 +50,6 @@ services:
       PORT: 3000
       TZ: America/Argentina/Buenos_Aires
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL}
-    ports:
-      - "3000:3000"
     depends_on:
       backend:
         condition: service_started
@@ -68,8 +64,6 @@ services:
       PORT: 3001
       TZ: America/Argentina/Buenos_Aires
       BACKEND_API_URL: http://backend:4000/api
-    ports:
-      - "3001:3001"
     depends_on:
       backend:
         condition: service_started
