@@ -28,6 +28,7 @@ JWT_SECRET=...
 
 FRONTEND_URL=https://baires-torneos.com
 ADMIN_URL=https://admin.baires-torneos.com
+CORS_ORIGINS=https://baires-torneos.com,https://admin.baires-torneos.com
 API_PUBLIC_URL=https://api.baires-torneos.com
 NEXT_PUBLIC_API_URL=https://api.baires-torneos.com/api
 
@@ -84,3 +85,5 @@ Despues ingresar al admin con:
 ## Importante
 
 `NEXT_PUBLIC_API_URL` se inyecta durante el build de la web publica. Si cambia el dominio de la API, hay que rebuild/redeployar el servicio `web`.
+
+Si usas dominios temporales de Dokploy/sslip.io, reemplaza `FRONTEND_URL`, `ADMIN_URL`, `API_PUBLIC_URL`, `NEXT_PUBLIC_API_URL` y `CORS_ORIGINS` por esos dominios generados.
