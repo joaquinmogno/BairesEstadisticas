@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import {
   Bell,
@@ -70,7 +71,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex min-w-0 items-center gap-3">
             <span className="flex h-11 w-[120px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-black/90 px-1 shadow-sm dark:bg-black">
-              <Image src="/baires-torneos-logo.svg" alt="Baires Torneos" width={120} height={54} priority className="h-full w-full object-contain" />
+              <Image src="/baires-torneos-logo.png" alt="Baires Torneos" width={120} height={54} priority className="h-full w-full object-contain" />
             </span>
             <span className="min-w-0">
               <span className="block truncate text-lg font-black tracking-tight">Baires Torneos</span>
@@ -264,8 +265,8 @@ function TeamLine({ team, reverse = false }: { team?: Team; reverse?: boolean })
 
 export function StandingTable({ rows, highlightTeamIds = [], showZones = true }: { rows: Standing[]; highlightTeamIds?: string[]; showZones?: boolean }) {
   useBairesData();
+  const router = useRouter();
   const zones = standingZones(rows.length);
-  const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
 
   if (!rows.length) {
     return <EmptyStateCard title="Tabla sin datos" message="Todavia no hay partidos publicados para armar posiciones." />;
@@ -273,13 +274,25 @@ export function StandingTable({ rows, highlightTeamIds = [], showZones = true }:
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[500px] text-xs sm:min-w-[620px] sm:text-sm">
+      <table className="w-full min-w-[700px] table-fixed text-xs sm:min-w-[760px] sm:text-sm">
+        <colgroup>
+          <col className="w-[44px]" />
+          <col className="w-[220px]" />
+          <col className="w-[64px]" />
+          <col className="w-[64px]" />
+          <col className="w-[64px]" />
+          <col className="w-[72px]" />
+          <col className="w-[48px]" />
+          <col className="w-[48px]" />
+          <col className="w-[48px]" />
+          <col className="w-[64px]" />
+        </colgroup>
         <thead className="border-y border-slate-100 text-[10px] font-black uppercase tracking-[0.06em] text-slate-400 dark:border-white/10 sm:text-[11px]">
           <tr>
-            <th className="px-2 py-2 text-left sm:px-3">#</th>
-            <th className="px-1.5 py-2 text-left sm:px-2">Equipo</th>
-            <th className="px-2 py-2 text-center sm:px-3">PTS</th>
-            <th className="px-1.5 py-2 text-center sm:px-2">PJ</th>
+            <th className="sticky left-0 z-20 bg-white px-2 py-2 text-left dark:bg-[#111820] sm:px-3">#</th>
+            <th className="sticky left-[44px] z-20 bg-white px-1.5 py-2 text-left dark:bg-[#111820] sm:px-2">Equipo</th>
+            <th className="sticky left-[264px] z-20 bg-white px-2 py-2 text-center dark:bg-[#111820] sm:px-3">PTS</th>
+            <th className="sticky left-[328px] z-20 bg-white px-1.5 py-2 text-center dark:bg-[#111820] sm:px-2">PJ</th>
             <th className="px-1.5 py-2 text-center sm:px-2">+/-</th>
             <th className="hidden px-1.5 py-2 text-center sm:table-cell sm:px-2">GOL</th>
             <th className="hidden px-1.5 py-2 text-center sm:table-cell sm:px-2">G</th>
@@ -293,46 +306,36 @@ export function StandingTable({ rows, highlightTeamIds = [], showZones = true }:
             const team = getTeam(row.teamId);
             const active = highlightTeamIds.includes(row.teamId);
             const zone = standingZoneForRow(row.position, zones);
-            const expanded = expandedTeamId === row.teamId;
             return (
-              <Fragment key={row.teamId}>
-                <tr
-                  onClick={() => setExpandedTeamId((current) => current === row.teamId ? null : row.teamId)}
-                  className={clsx("cursor-pointer border-b font-bold dark:border-white/10", showZones && zone.rowTone, active && "ring-1 ring-inset ring-emerald-400/60")}
-                >
-                  <td className="px-2 py-2 font-black sm:px-3">{row.position}</td>
-                  <td className="px-1.5 py-2 sm:px-2">
-                    <Link href={`/equipos/${row.teamId}`} className="flex items-center gap-1.5 sm:gap-2" onClick={(event) => event.stopPropagation()}>
-                      <TeamBadge team={team} size="sm" />
-                      <span className="max-w-[150px] truncate sm:max-w-none sm:whitespace-nowrap">{team?.name}</span>
-                    </Link>
-                  </td>
-                  <td className="px-2 py-2 text-center text-base font-black tabular-nums sm:px-3 sm:text-lg">{row.pts}</td>
-                  <Cell>{row.pj}</Cell>
-                  <Cell>{goalDifference(row)}</Cell>
-                  <SecondaryCell>{row.gf}:{row.gc}</SecondaryCell>
-                  <SecondaryCell>{row.pg}</SecondaryCell>
-                  <SecondaryCell>{row.pe}</SecondaryCell>
-                  <SecondaryCell>{row.pp}</SecondaryCell>
-                  <td className="hidden px-1.5 py-2 sm:table-cell sm:px-2"><FormDots form={row.form} /></td>
-                </tr>
-                {expanded ? (
-                  <tr className="border-b bg-slate-50 text-xs font-bold text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 sm:hidden">
-                    <td colSpan={10} className="px-3 py-3">
-                      <div className="grid grid-cols-4 gap-2 text-center">
-                        <span className="rounded-lg bg-white px-2 py-2 dark:bg-black/20">GF-GC<br /><b>{row.gf}:{row.gc}</b></span>
-                        <span className="rounded-lg bg-white px-2 py-2 dark:bg-black/20">G<br /><b>{row.pg}</b></span>
-                        <span className="rounded-lg bg-white px-2 py-2 dark:bg-black/20">E<br /><b>{row.pe}</b></span>
-                        <span className="rounded-lg bg-white px-2 py-2 dark:bg-black/20">P<br /><b>{row.pp}</b></span>
-                      </div>
-                      <div className="mt-2 flex items-center justify-center gap-2">
-                        <span>Últimos</span>
-                        <FormDots form={row.form} />
-                      </div>
-                    </td>
-                  </tr>
-                ) : null}
-              </Fragment>
+              <tr
+                key={row.teamId}
+                role="link"
+                tabIndex={0}
+                onClick={() => router.push(`/equipos/${row.teamId}`)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    router.push(`/equipos/${row.teamId}`);
+                  }
+                }}
+                className={clsx("cursor-pointer border-b font-bold transition hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5", showZones && zone.rowTone, active && "ring-1 ring-inset ring-emerald-400/60")}
+              >
+                <td className="sticky left-0 z-10 bg-inherit px-2 py-2 font-black sm:px-3">{row.position}</td>
+                <td className="sticky left-[44px] z-10 bg-inherit px-1.5 py-2 sm:px-2">
+                  <Link href={`/equipos/${row.teamId}`} className="flex items-center gap-1.5 sm:gap-2" onClick={(event) => event.stopPropagation()}>
+                    <TeamBadge team={team} size="sm" />
+                    <span className="max-w-[150px] truncate sm:max-w-none sm:whitespace-nowrap">{team?.name}</span>
+                  </Link>
+                </td>
+                <td className="sticky left-[264px] z-10 bg-inherit px-2 py-2 text-center text-base font-black tabular-nums sm:px-3 sm:text-lg">{row.pts}</td>
+                <Cell stickyLeft="left-[328px]">{row.pj}</Cell>
+                <Cell>{goalDifference(row)}</Cell>
+                <SecondaryCell>{row.gf}:{row.gc}</SecondaryCell>
+                <SecondaryCell>{row.pg}</SecondaryCell>
+                <SecondaryCell>{row.pe}</SecondaryCell>
+                <SecondaryCell>{row.pp}</SecondaryCell>
+                <td className="hidden px-1.5 py-2 sm:table-cell sm:px-2"><FormDots form={row.form} /></td>
+              </tr>
             );
           })}
         </tbody>
@@ -341,8 +344,8 @@ export function StandingTable({ rows, highlightTeamIds = [], showZones = true }:
   );
 }
 
-function Cell({ children }: { children: ReactNode }) {
-  return <td className="px-1.5 py-2 text-center tabular-nums sm:px-2">{children}</td>;
+function Cell({ children, stickyLeft }: { children: ReactNode; stickyLeft?: string }) {
+  return <td className={clsx("px-1.5 py-2 text-center tabular-nums sm:px-2", stickyLeft ? `sticky z-10 bg-inherit ${stickyLeft}` : "")}>{children}</td>;
 }
 
 function SecondaryCell({ children }: { children: ReactNode }) {
