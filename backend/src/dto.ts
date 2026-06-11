@@ -84,6 +84,20 @@ export class CreateTeamDto {
   @IsNotEmpty()
   tournamentId!: string;
 
+  @IsOptional()
+  @IsString()
+  clubId?: string;
+
+  @IsOptional()
+  @IsString()
+  sourceTeamId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(80)
+  @IsString({ each: true })
+  sourcePlayerIds?: string[];
+
   @IsString()
   @MinLength(2)
   name!: string;
@@ -130,12 +144,20 @@ export class UpdateTeamDto {
   @IsOptional()
   @IsString()
   tournamentId?: string;
+
+  @IsOptional()
+  @IsString()
+  clubId?: string;
 }
 
 export class CreatePlayerDto {
   @IsString()
   @IsNotEmpty()
   teamId!: string;
+
+  @IsOptional()
+  @IsString()
+  clubId?: string;
 
   @IsString()
   @MinLength(1)
@@ -157,7 +179,7 @@ export class CreatePlayerDto {
   position?: string;
 
   @IsOptional()
-  @IsISO8601()
+  @IsString()
   birthDate?: string;
 
   @IsOptional()
@@ -169,6 +191,10 @@ export class UpdatePlayerDto {
   @IsOptional()
   @IsString()
   teamId?: string;
+
+  @IsOptional()
+  @IsString()
+  clubId?: string;
 
   @IsOptional()
   @IsString()
@@ -190,7 +216,7 @@ export class UpdatePlayerDto {
   position?: string;
 
   @IsOptional()
-  @IsISO8601()
+  @IsString()
   birthDate?: string;
 
   @IsOptional()

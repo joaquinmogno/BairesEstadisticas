@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Shield, Star, Trophy, UserRound } from "lucide-react";
@@ -15,6 +16,7 @@ export default function Home() {
   const tomorrow = toInputDate(addDays(parseDate(today), 1));
   const [selectedDate, setSelectedDate] = useState(today);
   const [query, setQuery] = useState("");
+  const liveMatches = matches.filter((match) => match.status === "live");
   const dayMatches = matches.filter((match) => match.date === selectedDate);
   const grouped = groupMatches(dayMatches);
   const searchResults = useMemo(() => {
@@ -80,6 +82,19 @@ export default function Home() {
 
         <DateMatchHeader selectedDate={selectedDate} onChangeDate={setSelectedDate} today={today} yesterday={yesterday} tomorrow={tomorrow} />
 
+        {liveMatches.length ? (
+          <section className="overflow-hidden rounded-xl border border-emerald-500/40 bg-[#071a14] shadow-sm">
+            <div className="flex items-center justify-between gap-3 border-b border-emerald-400/20 px-4 py-3 text-white">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-300">En vivo ahora</p>
+                <h2 className="mt-1 text-lg font-black">Partidos en juego</h2>
+              </div>
+              <span className="rounded-full bg-emerald-400 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-emerald-950">{liveMatches.length}</span>
+            </div>
+            {liveMatches.map((match) => <ScoreRow key={match.id} match={match} highlight />)}
+          </section>
+        ) : null}
+
         {dayMatches.length ? (
           <div className="space-y-3">
             {Object.entries(grouped).map(([tournamentId, leagueMatches]) => (
@@ -89,7 +104,8 @@ export default function Home() {
         ) : (
           <Panel>
             <div className="p-4">
-              <EmptyState title="Sin partidos" text="No hay encuentros para esta fecha." />
+              <EmptyState title="Sin partidos" text="Todavía no se publicaron partidos para esta fecha." />
+              <Link href="/" className="mx-auto mt-3 flex min-h-10 w-fit items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-black text-white">Ver próximos partidos</Link>
             </div>
           </Panel>
         )}
@@ -179,7 +195,13 @@ function LeagueMatches({ tournamentId, leagueMatches }: { tournamentId: string; 
     <section className="overflow-hidden rounded-lg border border-slate-800 bg-[#101920] shadow-sm">
       <Link href={`/torneos/${tournamentId}`} className="flex items-center gap-3 bg-[#121d24] px-3 py-3 text-white transition hover:bg-[#17242d]">
         <Star size={22} className="shrink-0 text-blue-500" />
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-700 text-lg">BT</span>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-black/50 ring-1 ring-white/10">
+          {tournament?.logo ? (
+            <Image src={tournament.logo} alt={tournament.name} width={40} height={40} unoptimized className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-sm font-black">BT</span>
+          )}
+        </span>
         <div className="min-w-0">
           <p className="truncate text-base font-black">{tournament?.name}</p>
           <p className="text-sm font-bold text-slate-400">Argentina</p>
@@ -193,12 +215,12 @@ function LeagueMatches({ tournamentId, leagueMatches }: { tournamentId: string; 
   );
 }
 
-function ScoreRow({ match }: { match: Match }) {
+function ScoreRow({ match, highlight = false }: { match: Match; highlight?: boolean }) {
   const home = getTeam(match.homeTeamId);
   const away = getTeam(match.awayTeamId);
   const middle = match.status === "scheduled" || match.status === "suspended" ? match.time : `${match.homeScore ?? 0}-${match.awayScore ?? 0}`;
   return (
-    <Link href={`/partidos/${match.id}`} className="block border-t border-black/40 bg-[#101920] px-2 py-3 text-white transition hover:bg-[#17242d] sm:px-3">
+    <Link href={`/partidos/${match.id}`} className={`block border-t border-black/40 px-2 py-3 text-white transition hover:bg-[#17242d] sm:px-3 ${highlight ? "bg-emerald-950/50" : "bg-[#101920]"}`}>
       <div className="grid grid-cols-[minmax(0,1fr)_58px_minmax(0,1fr)] items-center gap-2">
         <div className="flex min-w-0 items-center justify-end gap-1.5 text-right sm:gap-2">
           <span className="min-w-0 truncate text-sm font-bold sm:text-base">{home?.name}</span>
@@ -210,7 +232,7 @@ function ScoreRow({ match }: { match: Match }) {
           <span className="min-w-0 truncate text-sm font-bold sm:text-base">{away?.name}</span>
         </div>
       </div>
-      <div className="mt-2 text-center text-xs font-bold text-slate-400">{dateLabel(match.date)} · {statusLabel(match.status)}</div>
+      <div className={`mt-2 text-center text-xs font-bold ${match.status === "live" ? "text-emerald-300" : "text-slate-400"}`}>{dateLabel(match.date)} · {statusLabel(match.status)}</div>
     </Link>
   );
 }

@@ -165,12 +165,27 @@ function ResumenTab({ tournamentId, onNavigate, onEdit }: { tournamentId: string
 }
 
 function EquiposTab({ tournamentId }: { tournamentId: string }) {
-  const { teamsByTournament, playersByTeam, addTeam, addPlayer, deleteTeam, deletePlayer, updateTeam, updateTeamMedia, updatePlayer } = useAdmin();
+  const { tournaments, teams: allTeams, teamsByTournament, playersByTeam, addTeam, addPlayer, deleteTeam, deletePlayer, updateTeam, updateTeamMedia, updatePlayer } = useAdmin();
   const teams = teamsByTournament(tournamentId);
   const teamLookup = useMemo(() => new Map(teams.map((team) => [normalizeLookupValue(team.name), team])), [teams]);
+  const existingClubOptions = useMemo(() => {
+    const currentClubIds = new Set(teams.map((team) => team.clubId).filter(Boolean));
+    const seen = new Set<string>();
+    return allTeams.filter((team) => {
+      const key = team.clubId ?? team.id;
+      if (currentClubIds.has(key) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [allTeams, teams]);
 
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [selectedExistingTeamId, setSelectedExistingTeamId] = useState("");
+  const [copyExistingRoster, setCopyExistingRoster] = useState(true);
+  const [selectedRosterPlayerIds, setSelectedRosterPlayerIds] = useState<string[]>([]);
+  const [teamToDelete, setTeamToDelete] = useState<Team | null>(null);
+  const [deletingTeam, setDeletingTeam] = useState(false);
   const [name, setName] = useState("");
   const [badgeUrl, setBadgeUrl] = useState("");
   const [teamsCsv, setTeamsCsv] = useState("equipo,escudo_url,colores,categoria");
@@ -181,6 +196,11 @@ function EquiposTab({ tournamentId }: { tournamentId: string }) {
   const [editName, setEditName] = useState("");
   const [editBadgeUrl, setEditBadgeUrl] = useState("");
   const rosterFileRef = useRef<HTMLInputElement | null>(null);
+  const selectedExistingTeam = existingClubOptions.find((team) => team.id === selectedExistingTeamId);
+  const selectedExistingRoster = selectedExistingTeam ? playersByTeam(selectedExistingTeam.id) : [];
+  const selectedExistingParticipations = selectedExistingTeam?.clubId
+    ? allTeams.filter((team) => team.clubId === selectedExistingTeam.clubId)
+    : selectedExistingTeam ? [selectedExistingTeam] : [];
 
   async function importTeams() {
     const rows = parseCsvBlock(teamsCsv);
@@ -305,6 +325,26 @@ function EquiposTab({ tournamentId }: { tournamentId: string }) {
   return (
     <div className="space-y-4">
       {msg ? <Toast message={msg} tone={msg.includes("No se pudo") || msg.includes("No encontramos") || msg.includes("Pegá") ? "error" : "success"} /> : null}
+      {teamToDelete ? (
+        <ConfirmParticipationDeleteModal
+          team={teamToDelete}
+          rosterCount={playersByTeam(teamToDelete.id).length}
+          deleting={deletingTeam}
+          onCancel={() => setTeamToDelete(null)}
+          onConfirm={async () => {
+            try {
+              setDeletingTeam(true);
+              await deleteTeam(teamToDelete.id);
+              setMsg(`Participación de ${teamToDelete.name} eliminada.`);
+              setTeamToDelete(null);
+            } catch (caught) {
+              setMsg(caught instanceof Error ? caught.message : "No se pudo eliminar el equipo.");
+            } finally {
+              setDeletingTeam(false);
+            }
+          }}
+        />
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         <PrimaryButton onClick={() => setShowForm((value) => !value)} className="flex items-center justify-center gap-2">
@@ -324,6 +364,99 @@ function EquiposTab({ tournamentId }: { tournamentId: string }) {
 
       {showForm ? (
         <section className="grid gap-4 rounded-xl bg-white p-3.5 shadow-sm ring-1 ring-slate-200">
+          {existingClubOptions.length ? (
+            <div>
+              <FormLabel>Club existente</FormLabel>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedExistingTeamId("");
+                  setSelectedRosterPlayerIds([]);
+                  setName("");
+                  setBadgeUrl("");
+                }}
+                className={`mb-2 flex min-h-12 w-full items-center rounded-xl border px-3 text-left text-sm font-black ${!selectedExistingTeamId ? "border-emerald-600 bg-emerald-50 text-emerald-950" : "border-slate-200 bg-white text-slate-600"}`}
+              >
+                Crear club nuevo
+              </button>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {existingClubOptions.map((team) => {
+                  const participations = team.clubId ? allTeams.filter((item) => item.clubId === team.clubId) : [team];
+                  const roster = playersByTeam(team.id);
+                  const selected = selectedExistingTeamId === team.id;
+                  return (
+                    <button
+                      key={team.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedExistingTeamId(team.id);
+                        setName(team.name);
+                        setBadgeUrl(team.badgeUrl ?? "");
+                        setSelectedRosterPlayerIds(roster.map((player) => player.id));
+                      }}
+                      className={`flex min-h-20 items-center gap-3 rounded-2xl border p-3 text-left transition ${selected ? "border-emerald-600 bg-emerald-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}
+                    >
+                      <TeamAvatar team={team} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-black text-slate-950">{team.name}</span>
+                        <span className="mt-1 block truncate text-xs font-bold text-slate-500">
+                          {participations.map((item) => tournaments.find((tournament) => tournament.id === item.tournamentId)?.name).filter(Boolean).join(" · ") || "Sin torneos"}
+                        </span>
+                        <span className="mt-1 inline-flex rounded-full bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 ring-1 ring-slate-200">
+                          {roster.length} jugadores
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedExistingTeamId ? (
+                <div className="mt-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                  <label className="flex min-h-11 items-center justify-between gap-3 text-sm font-black text-slate-700">
+                    <span>Usar mismo plantel en este torneo</span>
+                    <input
+                      type="checkbox"
+                      checked={copyExistingRoster}
+                      onChange={(event) => {
+                        setCopyExistingRoster(event.target.checked);
+                        setSelectedRosterPlayerIds(event.target.checked ? selectedExistingRoster.map((player) => player.id) : []);
+                      }}
+                      className="h-5 w-5 accent-emerald-700"
+                    />
+                  </label>
+                  {copyExistingRoster ? (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                        Se copiarán {selectedRosterPlayerIds.length} de {selectedExistingRoster.length} jugadores
+                        {selectedExistingParticipations[0] ? ` desde ${tournaments.find((tournament) => tournament.id === selectedExistingParticipations[0].tournamentId)?.name ?? "otra competición"}` : ""}
+                      </p>
+                      <div className="grid max-h-56 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                        {selectedExistingRoster.map((player) => {
+                          const checked = selectedRosterPlayerIds.includes(player.id);
+                          return (
+                            <label key={player.id} className={`flex min-h-12 items-center gap-3 rounded-xl border px-3 py-2 text-sm font-black ${checked ? "border-emerald-200 bg-white text-slate-950" : "border-slate-200 bg-slate-100 text-slate-500"}`}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(event) => {
+                                  setSelectedRosterPlayerIds((current) => event.target.checked ? [...current, player.id] : current.filter((id) => id !== player.id));
+                                }}
+                                className="h-5 w-5 accent-emerald-700"
+                              />
+                              <span className="min-w-0">
+                                <span className="block truncate">{player.name}</span>
+                                <span className="block truncate text-xs text-slate-500">{player.number ? `#${player.number} · ` : ""}{normalizePlayerPosition(player.position)}</span>
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <div>
             <FormLabel>Nombre del equipo</FormLabel>
             <TextInput placeholder="Ej: Villa Luro FC" value={name} onChange={(event) => setName(event.target.value)} />
@@ -336,9 +469,24 @@ function EquiposTab({ tournamentId }: { tournamentId: string }) {
             disabled={!name}
             onClick={async () => {
               try {
-                await addTeam({ tournamentId, name, badge: teamInitials(name), badgeUrl });
+                const selected = existingClubOptions.find((team) => team.id === selectedExistingTeamId);
+                await addTeam({
+                  tournamentId,
+                  clubId: selected?.clubId,
+                  sourceTeamId: selected && copyExistingRoster ? selected.id : undefined,
+                  sourcePlayerIds: selected && copyExistingRoster ? selectedRosterPlayerIds : undefined,
+                  name,
+                  badge: teamInitials(name),
+                  badgeUrl: badgeUrl || selected?.badgeUrl,
+                  photoUrl: selected?.photoUrl,
+                  colors: selected?.colors,
+                  category: selected?.category,
+                });
                 setName("");
                 setBadgeUrl("");
+                setSelectedExistingTeamId("");
+                setCopyExistingRoster(true);
+                setSelectedRosterPlayerIds([]);
                 setShowForm(false);
                 setMsg("Equipo creado.");
               } catch (caught) {
@@ -402,14 +550,10 @@ function EquiposTab({ tournamentId }: { tournamentId: string }) {
               <span
                 role="button"
                 tabIndex={0}
-                onClick={() => {
-                  if (!window.confirm(`Eliminar ${team.name}? También se borrarán sus jugadores y partidos.`)) return;
-                  void deleteTeam(team.id).catch((caught) => window.alert(caught instanceof Error ? caught.message : "No se pudo eliminar el equipo."));
-                }}
+                onClick={() => setTeamToDelete(team)}
                 onKeyDown={(event) => {
                   if (event.key !== "Enter" && event.key !== " ") return;
-                  if (!window.confirm(`Eliminar ${team.name}? También se borrarán sus jugadores y partidos.`)) return;
-                  void deleteTeam(team.id).catch((caught) => window.alert(caught instanceof Error ? caught.message : "No se pudo eliminar el equipo."));
+                  setTeamToDelete(team);
                 }}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-red-500 active:bg-red-50"
               >
@@ -446,6 +590,55 @@ function EquiposTab({ tournamentId }: { tournamentId: string }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function ConfirmParticipationDeleteModal({
+  team,
+  rosterCount,
+  deleting,
+  onCancel,
+  onConfirm,
+}: {
+  team: Team;
+  rosterCount: number;
+  deleting: boolean;
+  onCancel: () => void;
+  onConfirm: () => Promise<void>;
+}) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end bg-slate-950/50 p-3 sm:items-center sm:justify-center">
+      <section className="w-full rounded-[28px] bg-white p-4 shadow-2xl ring-1 ring-slate-200 sm:max-w-md">
+        <div className="flex items-start gap-3">
+          <TeamAvatar team={team} />
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-red-500">Eliminar participación</p>
+            <h3 className="mt-1 text-xl font-black text-slate-950">{team.name}</h3>
+            <p className="mt-2 text-sm font-bold leading-relaxed text-slate-500">
+              Se eliminará la participación de este equipo en este torneo, junto con sus partidos de esta competición.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-2 rounded-2xl bg-slate-50 p-3 text-sm font-bold text-slate-600 ring-1 ring-slate-200">
+          <p>El club seguirá existiendo si participa en otros torneos.</p>
+          <p>Los jugadores no se borran si están en otro plantel.</p>
+          <p>{rosterCount} jugadores asociados a esta participación.</p>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <SecondaryButton disabled={deleting} onClick={onCancel} className="!h-12 !rounded-2xl">
+            Cancelar
+          </SecondaryButton>
+          <button
+            type="button"
+            disabled={deleting}
+            onClick={() => void onConfirm()}
+            className="min-h-12 rounded-2xl bg-red-600 px-4 text-sm font-black text-white disabled:opacity-60"
+          >
+            {deleting ? "Eliminando..." : "Eliminar"}
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
@@ -1483,7 +1676,7 @@ function MatchEditor({ matchId, onClose }: { matchId: string; onClose: () => voi
                               <button
                                 key={player.id}
                                 type="button"
-                                onClick={() => addDraftEvent("mvp", player.teamId, player.id)}
+                                onClick={() => addDraftEvent("mvp", team.id, player.id)}
                                 className={clsx(
                                   "flex items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition",
                                   isSelected ? "border-amber-300 bg-amber-50 text-amber-950" : "border-slate-200 bg-slate-50 text-slate-700",
@@ -1575,7 +1768,7 @@ function MatchEditor({ matchId, onClose }: { matchId: string; onClose: () => voi
                             key={player.id}
                             type="button"
                             onClick={() => {
-                              setTeamId(player.teamId);
+                              setTeamId(teamId);
                               setPlayerId(player.id);
                             }}
                             className={clsx(

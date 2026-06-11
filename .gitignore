@@ -2,6 +2,7 @@
 **/.next/
 **/dist/
 **/coverage/
+**/*.tsbuildinfo
 
 backend/.env
 backend/uploads/**

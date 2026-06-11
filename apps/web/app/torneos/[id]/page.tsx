@@ -127,22 +127,22 @@ export default function TournamentPage() {
       >
         <Breadcrumbs items={[{ label: "Inicio", href: "/" }, { label: tournament.name }]} />
         <Panel>
-          <div className="bg-slate-950 p-5 text-white dark:bg-black sm:p-6">
+          <div className="bg-slate-950 p-4 text-white dark:bg-black sm:p-6">
             <div className="flex justify-end">
-              <ShareFavoriteActions favoriteKey={`tournament:${tournament.id}`} />
+              <ShareFavoriteActions favoriteKey={`tournament:${tournament.id}`} shareText={`Mirá el torneo ${tournament.name} en Baires Torneos.`} />
             </div>
-            <div className="mt-3 flex items-start gap-4">
-              <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/10">
+            <div className="mt-2 flex items-start gap-3 sm:mt-3 sm:gap-4">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/10 sm:h-16 sm:w-16">
                 {tournament.logo ? (
                   <Image src={tournament.logo} alt={tournament.name} width={64} height={64} unoptimized className="h-full w-full object-cover" />
                 ) : (
-                  <Trophy size={28} className="text-emerald-300" />
+                  <Trophy size={24} className="text-emerald-300 sm:size-7" />
                 )}
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-black uppercase tracking-[0.1em] text-emerald-300">{tournament.category} · {tournament.status}</p>
-                <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-5xl">{tournament.name}</h1>
-                <p className="mt-3 text-sm font-bold text-slate-300">{tournament.venue} · {tournament.rounds} fechas</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.1em] text-emerald-300 sm:text-sm">{tournament.category} · {tournament.status}</p>
+                <h1 className="mt-1 text-3xl font-black tracking-tight sm:mt-2 sm:text-5xl">{tournament.name}</h1>
+                <p className="mt-2 text-xs font-bold text-slate-300 sm:mt-3 sm:text-sm">{tournament.venue} · {tournament.rounds} fechas</p>
               </div>
             </div>
           </div>

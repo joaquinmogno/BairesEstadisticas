@@ -45,11 +45,10 @@ describe("Snapshot smoke flow", () => {
           },
         ]),
       },
-      team: {
+      club: {
         findMany: jest.fn().mockResolvedValue([
           {
-            id: "team-1",
-            tournamentId: "t-1",
+            id: "club-1",
             name: "Villa Luro",
             badgeUrl: "http://localhost:4000/uploads/team-badges/villa-luro.png",
             colors: "#16a34a,#0f172a",
@@ -57,8 +56,7 @@ describe("Snapshot smoke flow", () => {
             category: "Mayores",
           },
           {
-            id: "team-2",
-            tournamentId: "t-1",
+            id: "club-2",
             name: "Devoto",
             badgeUrl: null,
             colors: null,
@@ -67,17 +65,59 @@ describe("Snapshot smoke flow", () => {
           },
         ]),
       },
+      team: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "team-1",
+            tournamentId: "t-1",
+            clubId: "club-1",
+            name: "Villa Luro",
+            badgeUrl: "http://localhost:4000/uploads/team-badges/villa-luro.png",
+            colors: "#16a34a,#0f172a",
+            photoUrl: null,
+            category: "Mayores",
+            club: {
+              id: "club-1",
+              name: "Villa Luro",
+              badgeUrl: "http://localhost:4000/uploads/team-badges/villa-luro.png",
+              colors: "#16a34a,#0f172a",
+              photoUrl: null,
+              category: "Mayores",
+            },
+          },
+          {
+            id: "team-2",
+            tournamentId: "t-1",
+            clubId: "club-2",
+            name: "Devoto",
+            badgeUrl: null,
+            colors: null,
+            photoUrl: null,
+            category: "Mayores",
+            club: {
+              id: "club-2",
+              name: "Devoto",
+              badgeUrl: null,
+              colors: null,
+              photoUrl: null,
+              category: "Mayores",
+            },
+          },
+        ]),
+      },
       player: {
         findMany: jest.fn().mockResolvedValue([
           {
             id: "player-1",
             teamId: "team-1",
+            clubId: "club-1",
             firstName: "Mateo",
             lastName: "Luna",
             number: 10,
             position: "Delantero",
             birthDate: new Date("1999-03-16T00:00:00.000Z"),
             photoUrl: null,
+            rosters: [{ teamId: "team-1" }],
           },
         ]),
       },
@@ -133,10 +173,18 @@ describe("Snapshot smoke flow", () => {
         expect.objectContaining({
           id: "team-1",
           tournamentId: "t-1",
+          clubId: "club-1",
           badgeUrl: "http://localhost:4000/uploads/team-badges/villa-luro.png",
         }),
       ]),
     );
+    expect(snapshot.players).toEqual([
+      expect.objectContaining({
+        id: "player-1",
+        clubId: "club-1",
+        teamIds: ["team-1"],
+      }),
+    ]);
     expect(snapshot.matches).toEqual([
       expect.objectContaining({
         id: "match-1",

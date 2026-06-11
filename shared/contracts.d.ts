@@ -13,9 +13,18 @@ export type SnapshotTournament = {
     status: "scheduled" | "live" | "finished";
     type: "league" | "cup" | "groups_playoffs" | "knockout";
 };
+export type SnapshotClub = {
+    id: string;
+    name: string;
+    badgeUrl?: string;
+    colors?: string;
+    photoUrl?: string;
+    category?: string;
+};
 export type SnapshotTeam = {
     id: string;
     tournamentId: string;
+    clubId: string;
     name: string;
     badge: string;
     badgeUrl?: string;
@@ -26,6 +35,8 @@ export type SnapshotTeam = {
 export type SnapshotPlayer = {
     id: string;
     teamId: string;
+    clubId: string;
+    teamIds: string[];
     name: string;
     lastName?: string;
     number?: number;
@@ -119,6 +130,7 @@ export type MatchdayWithMatchesPayload = Array<{
 }>;
 export type SnapshotPayload = {
     tournaments: SnapshotTournament[];
+    clubs: SnapshotClub[];
     teams: SnapshotTeam[];
     players: SnapshotPlayer[];
     matchdays: SnapshotMatchday[];

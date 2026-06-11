@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { BadgeCheck, Cake, CalendarDays, Goal, Handshake, RectangleVertical, Shirt, Square, Trophy } from "lucide-react";
 import { AppShell, Breadcrumbs, CompareBar, ContextLinksPanel, MatchCard, PageWrap, Panel, SectionTitle, ShareFavoriteActions, Tabs, TeamBadge, useRememberedTab } from "@/app/_components/sports-ui";
-import { getPlayer, getPlayerAppearances, getTeam, getTournament, topAssisters, topScorers, useBairesData } from "@/lib/baires-data";
+import { getClub, getPlayer, getPlayerAppearances, getTeam, getTournament, topAssisters, topScorers, useBairesData } from "@/lib/baires-data";
 
 type Tab = "resumen" | "estadisticas" | "apariciones";
 
@@ -44,8 +45,10 @@ export default function PlayerPage() {
   }
 
   const team = getTeam(player.teamId);
+  const club = getClub(player.clubId);
   const tournament = team ? getTournament(team.tournamentId) : undefined;
   const appearances = getPlayerAppearances(player.id);
+  const statsByTournament = playerCompetitionStats(appearances);
   const scorers = topScorers(team?.tournamentId);
   const assisters = topAssisters(team?.tournamentId);
   const maxGoals = Math.max(...scorers.map((item) => item.goals), 1);
@@ -57,14 +60,14 @@ export default function PlayerPage() {
         aside={
           <>
             <Panel>
-              <SectionTitle title="Equipo actual" />
-              <div className="flex items-center gap-3 p-4">
+              <SectionTitle title="Club y equipo" />
+              <Link href={club ? `/clubes/${club.id}` : team ? `/equipos/${team.id}` : "/"} className="flex items-center gap-3 p-4 transition hover:bg-slate-50 dark:hover:bg-white/5">
                 <TeamBadge team={team} size="lg" />
                 <div className="min-w-0">
-                  <p className="truncate font-black">{team?.name}</p>
-                  <p className="truncate text-sm font-bold text-slate-500 dark:text-slate-400">{tournament?.name}</p>
+                  <p className="truncate font-black">{club?.name ?? team?.name}</p>
+                  <p className="truncate text-sm font-bold text-slate-500 dark:text-slate-400">{team?.name} · {tournament?.name}</p>
                 </div>
-              </div>
+              </Link>
             </Panel>
             <ContextLinksPanel
               title="Seguí explorando"
@@ -88,6 +91,7 @@ export default function PlayerPage() {
               <p className="mt-4 text-sm font-black uppercase tracking-[0.1em] text-emerald-300">#{player.number} · {player.position}</p>
               <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-5xl">{player.name}</h1>
               <p className="mt-3 text-sm font-bold text-slate-300">{team?.name} · {tournament?.name}</p>
+              {club ? <Link href={`/clubes/${club.id}`} className="mt-4 inline-flex min-h-10 items-center rounded-full bg-white/10 px-4 text-sm font-black text-white">Ver ficha del club</Link> : null}
             </div>
           </div>
         </Panel>
@@ -129,6 +133,25 @@ export default function PlayerPage() {
           ) : null}
           {active === "estadisticas" ? (
             <div className="space-y-5 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Por competición</p>
+                <div className="mt-3 grid gap-2">
+                  {statsByTournament.length ? statsByTournament.map((row) => (
+                    <div key={row.tournamentId} className="rounded-xl bg-white p-3 shadow-sm dark:bg-black/20">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="truncate text-sm font-black">{getTournament(row.tournamentId)?.name ?? "Torneo"}</p>
+                        <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-black text-slate-600 dark:bg-white/10 dark:text-slate-300">{row.appearances} PJ</span>
+                      </div>
+                      <div className="mt-2 grid grid-cols-4 gap-2 text-center text-xs font-black text-slate-500 dark:text-slate-400">
+                        <span>G<br /><b className="text-slate-950 dark:text-white">{row.goals}</b></span>
+                        <span>A<br /><b className="text-slate-950 dark:text-white">{row.assists}</b></span>
+                        <span>AM<br /><b className="text-slate-950 dark:text-white">{row.yellowCards}</b></span>
+                        <span>RJ<br /><b className="text-slate-950 dark:text-white">{row.redCards}</b></span>
+                      </div>
+                    </div>
+                  )) : <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Todavía no hay apariciones publicadas.</p>}
+                </div>
+              </div>
               <CompareBar label="Goles vs lider torneo" left={player.goals} right={maxGoals} />
               <CompareBar label="Asistencias vs lider torneo" left={player.assists} right={maxAssists} />
               <CompareBar label="Participacion en goles" left={player.goals + player.assists} right={player.appearances} />
@@ -162,6 +185,22 @@ export default function PlayerPage() {
       </PageWrap>
     </AppShell>
   );
+}
+
+function playerCompetitionStats(appearances: ReturnType<typeof getPlayerAppearances>) {
+  const rows = new Map<string, { tournamentId: string; appearances: number; goals: number; assists: number; yellowCards: number; redCards: number }>();
+  appearances.forEach(({ match, events }) => {
+    const current = rows.get(match.tournamentId) ?? { tournamentId: match.tournamentId, appearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0 };
+    current.appearances += 1;
+    events.forEach((event) => {
+      if (event.type === "goal") current.goals += 1;
+      if (event.type === "assist") current.assists += 1;
+      if (event.type === "yellow") current.yellowCards += 1;
+      if (event.type === "red") current.redCards += 1;
+    });
+    rows.set(match.tournamentId, current);
+  });
+  return Array.from(rows.values());
 }
 
 function PlayerDetail({ icon, value, label, withDivider = false }: { icon: React.ReactNode; value: string; label: string; withDivider?: boolean }) {

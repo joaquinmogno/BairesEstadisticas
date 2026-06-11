@@ -4,15 +4,17 @@ import Link from "next/link";
 import NextImage from "next/image";
 import { useState } from "react";
 import { Edit3, Plus, Save, Trash2 } from "lucide-react";
-import { AdminShell, Card, PrimaryButton, SelectInput, TextArea, TextInput, Toast } from "../_components/admin-shell";
+import { AdminShell, Card, PrimaryButton, SecondaryButton, SelectInput, TextArea, TextInput, Toast } from "../_components/admin-shell";
 import { MediaPicker } from "../_components/media-picker";
 import { useAdmin, type Tournament } from "../_lib/admin-store";
 
 export default function AdminTournamentsPage() {
-  const { tournaments, addTournament, updateTournament, updateTournamentLogo, deleteTournament } = useAdmin();
+  const { tournaments, teams, addTournament, addTeam, standingsByTournament, updateTournament, updateTournamentLogo, deleteTournament } = useAdmin();
   const [showForm, setShowForm] = useState(false);
+  const [showPlayoffForm, setShowPlayoffForm] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [playoffDraft, setPlayoffDraft] = useState({ sourceTournamentId: "", name: "", qualifiers: 4 });
   const [draft, setDraft] = useState({
     name: "",
     category: "Futbol 5",
@@ -21,6 +23,44 @@ export default function AdminTournamentsPage() {
     rules: "",
     type: "league" as Tournament["type"],
   });
+  const sourceTournament = tournaments.find((tournament) => tournament.id === playoffDraft.sourceTournamentId);
+  const qualifiedRows = playoffDraft.sourceTournamentId ? standingsByTournament(playoffDraft.sourceTournamentId).slice(0, playoffDraft.qualifiers) : [];
+
+  async function createPlayoffFromStandings() {
+    if (!sourceTournament || !qualifiedRows.length) return;
+    try {
+      setError("");
+      const created = await addTournament({
+        name: playoffDraft.name.trim() || `Playoff ${sourceTournament.name}`,
+        category: sourceTournament.category,
+        season: sourceTournament.season,
+        startDate: "",
+        type: "knockout",
+        rules: sourceTournament.rules,
+      });
+      for (const row of qualifiedRows) {
+        const sourceTeam = teams.find((team) => team.id === row.teamId);
+        if (!sourceTeam) continue;
+        await addTeam({
+          tournamentId: created.id,
+          clubId: sourceTeam.clubId,
+          sourceTeamId: sourceTeam.id,
+          name: sourceTeam.name,
+          badge: sourceTeam.badge,
+          badgeUrl: sourceTeam.badgeUrl,
+          photoUrl: sourceTeam.photoUrl,
+          colors: sourceTeam.colors,
+          category: sourceTeam.category,
+        });
+      }
+      setMessage(`Playoff creado con ${qualifiedRows.length} clasificados.`);
+      setShowPlayoffForm(false);
+      setPlayoffDraft({ sourceTournamentId: "", name: "", qualifiers: 4 });
+    } catch (caught) {
+      setMessage("");
+      setError(caught instanceof Error ? caught.message : "No se pudo crear el playoff.");
+    }
+  }
 
   return (
     <AdminShell title="Torneos" subtitle="Gestion deportiva">
@@ -42,6 +82,9 @@ export default function AdminTournamentsPage() {
         <PrimaryButton onClick={() => setShowForm((o) => !o)} className="flex w-full items-center justify-center gap-2 sm:w-auto">
           <Plus size={18} /> Nuevo torneo
         </PrimaryButton>
+        <SecondaryButton onClick={() => setShowPlayoffForm((value) => !value)} className="flex w-full items-center justify-center gap-2 sm:w-auto">
+          Crear playoff desde tabla
+        </SecondaryButton>
 
         {showForm ? (
           <Card className="grid gap-3 p-3.5 md:grid-cols-2">
@@ -73,6 +116,33 @@ export default function AdminTournamentsPage() {
               }}
             >
               Crear torneo
+            </PrimaryButton>
+          </Card>
+        ) : null}
+
+        {showPlayoffForm ? (
+          <Card className="grid gap-3 p-3.5 md:grid-cols-2">
+            <SelectInput value={playoffDraft.sourceTournamentId} onChange={(event) => setPlayoffDraft({ ...playoffDraft, sourceTournamentId: event.target.value })}>
+              <option value="">Torneo base</option>
+              {tournaments.map((tournament) => (
+                <option key={tournament.id} value={tournament.id}>{tournament.name}</option>
+              ))}
+            </SelectInput>
+            <TextInput placeholder="Nombre del playoff" value={playoffDraft.name} onChange={(event) => setPlayoffDraft({ ...playoffDraft, name: event.target.value })} />
+            <TextInput type="number" min={2} max={32} value={playoffDraft.qualifiers} onChange={(event) => setPlayoffDraft({ ...playoffDraft, qualifiers: Number(event.target.value) || 2 })} />
+            <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm font-bold text-slate-600 ring-1 ring-slate-200">
+              {sourceTournament ? `${qualifiedRows.length} clasificados desde ${sourceTournament.name}` : "Elegí un torneo con tabla cargada"}
+            </div>
+            {qualifiedRows.length ? (
+              <div className="md:col-span-2 grid gap-2">
+                {qualifiedRows.map((row, index) => {
+                  const team = teams.find((item) => item.id === row.teamId);
+                  return <div key={row.teamId} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm font-black text-slate-700"><span>{index + 1}° {team?.name}</span><span>{row.pts} pts</span></div>;
+                })}
+              </div>
+            ) : null}
+            <PrimaryButton disabled={!sourceTournament || !qualifiedRows.length} onClick={() => void createPlayoffFromStandings()} className="md:col-span-2">
+              Crear playoff y copiar planteles
             </PrimaryButton>
           </Card>
         ) : null}
@@ -135,7 +205,7 @@ function TournamentCard({
         <button
           type="button"
           onClick={async () => {
-            if (!window.confirm(`Eliminar ${tournament.name}? Tambien se borraran equipos, jugadores, fechas y partidos.`)) return;
+            if (!window.confirm(`Eliminar ${tournament.name}? Se borrarán fechas, partidos y participaciones de este torneo. Los clubes y jugadores que participen en otros torneos seguirán existiendo.`)) return;
             try {
               setError("");
               await onDelete();

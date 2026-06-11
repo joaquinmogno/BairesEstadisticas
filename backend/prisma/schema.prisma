@@ -73,10 +73,25 @@ model Tournament {
   matches   Match[]
 }
 
+model Club {
+  id        String   @id @default(uuid())
+  name      String
+  badgeUrl  String?
+  colors    String?
+  photoUrl  String?
+  category  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  teams     Team[]
+  players   Player[]
+}
+
 model Team {
   id           String     @id @default(uuid())
   tournamentId String
   tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  clubId       String
+  club         Club       @relation(fields: [clubId], references: [id], onDelete: Cascade)
   name         String
   badgeUrl     String?
   colors       String?
@@ -89,12 +104,17 @@ model Team {
   awayMatches  Match[]    @relation("AwayTeam")
   events       MatchEvent[]
   lineups      LineupPlayer[]
+  roster       RosterPlayer[]
+
+  @@unique([tournamentId, clubId])
 }
 
 model Player {
   id          String   @id @default(uuid())
   teamId      String
   team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  clubId      String
+  club        Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
   firstName   String
   lastName    String
   birthDate   DateTime?
@@ -106,6 +126,21 @@ model Player {
   events      MatchEvent[]
   lineups     LineupPlayer[]
   mvpMatches  Match[]  @relation("MatchMvp")
+  rosters     RosterPlayer[]
+}
+
+model RosterPlayer {
+  id        String   @id @default(uuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  number    Int?
+  position  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([teamId, playerId])
 }
 
 model Matchday {

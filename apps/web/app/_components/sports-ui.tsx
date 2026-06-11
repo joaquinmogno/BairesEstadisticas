@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import {
   Bell,
@@ -12,6 +12,7 @@ import {
   Copy,
   Heart,
   LayoutDashboard,
+  MessageCircle,
   Menu,
   Moon,
   Search,
@@ -27,6 +28,7 @@ import {
   dateLabel,
   fullDateLabel,
   getTeam,
+  getTeamMatches,
   getTournament,
   goalDifference,
   statusLabel,
@@ -263,6 +265,7 @@ function TeamLine({ team, reverse = false }: { team?: Team; reverse?: boolean })
 export function StandingTable({ rows, highlightTeamIds = [], showZones = true }: { rows: Standing[]; highlightTeamIds?: string[]; showZones?: boolean }) {
   useBairesData();
   const zones = standingZones(rows.length);
+  const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
 
   if (!rows.length) {
     return <EmptyStateCard title="Tabla sin datos" message="Todavia no hay partidos publicados para armar posiciones." />;
@@ -270,19 +273,19 @@ export function StandingTable({ rows, highlightTeamIds = [], showZones = true }:
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[760px] text-sm">
-        <thead className="border-y border-slate-100 text-[11px] font-black uppercase tracking-[0.08em] text-slate-400 dark:border-white/10">
+      <table className="w-full min-w-[500px] text-xs sm:min-w-[620px] sm:text-sm">
+        <thead className="border-y border-slate-100 text-[10px] font-black uppercase tracking-[0.06em] text-slate-400 dark:border-white/10 sm:text-[11px]">
           <tr>
-            <th className="px-4 py-3 text-left">#</th>
-            <th className="px-2 py-3 text-left">Equipo</th>
-            <th className="px-4 py-3 text-center">PTS</th>
-            <th className="px-2 py-3 text-center">PJ</th>
-            <th className="px-2 py-3 text-center">GOL</th>
-            <th className="px-2 py-3 text-center">+/-</th>
-            <th className="px-2 py-3 text-center">G</th>
-            <th className="px-2 py-3 text-center">E</th>
-            <th className="px-2 py-3 text-center">P</th>
-            <th className="px-2 py-3 text-center">Ult.</th>
+            <th className="px-2 py-2 text-left sm:px-3">#</th>
+            <th className="px-1.5 py-2 text-left sm:px-2">Equipo</th>
+            <th className="px-2 py-2 text-center sm:px-3">PTS</th>
+            <th className="px-1.5 py-2 text-center sm:px-2">PJ</th>
+            <th className="px-1.5 py-2 text-center sm:px-2">+/-</th>
+            <th className="hidden px-1.5 py-2 text-center sm:table-cell sm:px-2">GOL</th>
+            <th className="hidden px-1.5 py-2 text-center sm:table-cell sm:px-2">G</th>
+            <th className="hidden px-1.5 py-2 text-center sm:table-cell sm:px-2">E</th>
+            <th className="hidden px-1.5 py-2 text-center sm:table-cell sm:px-2">P</th>
+            <th className="hidden px-1.5 py-2 text-center sm:table-cell sm:px-2">Ult.</th>
           </tr>
         </thead>
         <tbody>
@@ -290,24 +293,46 @@ export function StandingTable({ rows, highlightTeamIds = [], showZones = true }:
             const team = getTeam(row.teamId);
             const active = highlightTeamIds.includes(row.teamId);
             const zone = standingZoneForRow(row.position, zones);
+            const expanded = expandedTeamId === row.teamId;
             return (
-              <tr key={row.teamId} className={clsx("border-b font-bold dark:border-white/10", showZones && zone.rowTone, active && "ring-1 ring-inset ring-emerald-400/60")}>
-                <td className="px-4 py-3 font-black">{row.position}</td>
-                <td className="px-2 py-3">
-                  <Link href={`/equipos/${row.teamId}`} className="flex items-center gap-2">
-                    <TeamBadge team={team} size="sm" />
-                    <span className="whitespace-nowrap">{team?.name}</span>
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-center text-lg font-black tabular-nums">{row.pts}</td>
-                <Cell>{row.pj}</Cell>
-                <Cell>{row.gf}:{row.gc}</Cell>
-                <Cell>{goalDifference(row)}</Cell>
-                <Cell>{row.pg}</Cell>
-                <Cell>{row.pe}</Cell>
-                <Cell>{row.pp}</Cell>
-                <td className="px-2 py-3"><FormDots form={row.form} /></td>
-              </tr>
+              <Fragment key={row.teamId}>
+                <tr
+                  onClick={() => setExpandedTeamId((current) => current === row.teamId ? null : row.teamId)}
+                  className={clsx("cursor-pointer border-b font-bold dark:border-white/10", showZones && zone.rowTone, active && "ring-1 ring-inset ring-emerald-400/60")}
+                >
+                  <td className="px-2 py-2 font-black sm:px-3">{row.position}</td>
+                  <td className="px-1.5 py-2 sm:px-2">
+                    <Link href={`/equipos/${row.teamId}`} className="flex items-center gap-1.5 sm:gap-2" onClick={(event) => event.stopPropagation()}>
+                      <TeamBadge team={team} size="sm" />
+                      <span className="max-w-[150px] truncate sm:max-w-none sm:whitespace-nowrap">{team?.name}</span>
+                    </Link>
+                  </td>
+                  <td className="px-2 py-2 text-center text-base font-black tabular-nums sm:px-3 sm:text-lg">{row.pts}</td>
+                  <Cell>{row.pj}</Cell>
+                  <Cell>{goalDifference(row)}</Cell>
+                  <SecondaryCell>{row.gf}:{row.gc}</SecondaryCell>
+                  <SecondaryCell>{row.pg}</SecondaryCell>
+                  <SecondaryCell>{row.pe}</SecondaryCell>
+                  <SecondaryCell>{row.pp}</SecondaryCell>
+                  <td className="hidden px-1.5 py-2 sm:table-cell sm:px-2"><FormDots form={row.form} /></td>
+                </tr>
+                {expanded ? (
+                  <tr className="border-b bg-slate-50 text-xs font-bold text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 sm:hidden">
+                    <td colSpan={10} className="px-3 py-3">
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        <span className="rounded-lg bg-white px-2 py-2 dark:bg-black/20">GF-GC<br /><b>{row.gf}:{row.gc}</b></span>
+                        <span className="rounded-lg bg-white px-2 py-2 dark:bg-black/20">G<br /><b>{row.pg}</b></span>
+                        <span className="rounded-lg bg-white px-2 py-2 dark:bg-black/20">E<br /><b>{row.pe}</b></span>
+                        <span className="rounded-lg bg-white px-2 py-2 dark:bg-black/20">P<br /><b>{row.pp}</b></span>
+                      </div>
+                      <div className="mt-2 flex items-center justify-center gap-2">
+                        <span>Últimos</span>
+                        <FormDots form={row.form} />
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
+              </Fragment>
             );
           })}
         </tbody>
@@ -317,7 +342,11 @@ export function StandingTable({ rows, highlightTeamIds = [], showZones = true }:
 }
 
 function Cell({ children }: { children: ReactNode }) {
-  return <td className="px-2 py-3 text-center tabular-nums">{children}</td>;
+  return <td className="px-1.5 py-2 text-center tabular-nums sm:px-2">{children}</td>;
+}
+
+function SecondaryCell({ children }: { children: ReactNode }) {
+  return <td className="hidden px-1.5 py-2 text-center tabular-nums sm:table-cell sm:px-2">{children}</td>;
 }
 
 export function Tabs<T extends string>({ tabs, active, onChange }: { tabs: { id: T; label: string }[]; active: T; onChange: (id: T) => void }) {
@@ -431,7 +460,7 @@ export function PlayerRow({ player, metric }: { player: Player; metric: "goals" 
   );
 }
 
-export function ShareFavoriteActions({ favoriteKey }: { favoriteKey: string }) {
+export function ShareFavoriteActions({ favoriteKey, shareText }: { favoriteKey: string; shareText?: string }) {
   const [fav, setFav] = useState(false);
   const [notify, setNotify] = useState(false);
 
@@ -448,10 +477,14 @@ export function ShareFavoriteActions({ favoriteKey }: { favoriteKey: string }) {
 
   function share() {
     if (navigator.share) {
-      navigator.share({ title: document.title, url: window.location.href }).catch(() => undefined);
+      navigator.share({ title: document.title, text: shareText, url: window.location.href }).catch(() => undefined);
       return;
     }
-    navigator.clipboard?.writeText(window.location.href);
+    navigator.clipboard?.writeText(shareText ? `${shareText}\n${window.location.href}` : window.location.href);
+  }
+
+  function shareWhatsApp() {
+    openWhatsAppShare(shareText);
   }
 
   function toggleNotifications() {
@@ -464,9 +497,28 @@ export function ShareFavoriteActions({ favoriteKey }: { favoriteKey: string }) {
     <div className="flex gap-2">
       <IconButton label="Favorito" onClick={toggle}>{fav ? <Star size={18} fill="currentColor" /> : <Heart size={18} />}</IconButton>
       <IconButton label="Notificaciones" onClick={toggleNotifications}>{notify ? <BellRing size={18} /> : <Bell size={18} />}</IconButton>
+      {shareText ? <IconButton label="Compartir por WhatsApp" onClick={shareWhatsApp}><MessageCircle size={18} /></IconButton> : null}
       <IconButton label="Compartir" onClick={share}><Share2 size={18} /></IconButton>
     </div>
   );
+}
+
+function WhatsAppShareButton({ text }: { text: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => openWhatsAppShare(text)}
+      className="inline-flex min-h-9 items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 text-xs font-black text-white transition hover:bg-white/15"
+    >
+      <MessageCircle size={16} />
+      WhatsApp
+    </button>
+  );
+}
+
+function openWhatsAppShare(text?: string) {
+  const message = text ? `${text}\n${window.location.href}` : window.location.href;
+  window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
 }
 
 export function FollowedItemsPanel() {
@@ -485,7 +537,13 @@ export function FollowedItemsPanel() {
       if (!type || !id) return [];
       if (type === "team") {
         const team = data.teams.find((item) => item.id === id);
-        return team ? [{ href: `/equipos/${team.id}`, label: team.name, helper: "Equipo seguido" }] : [];
+        const teamMatches = team ? getTeamMatches(team.id) : [];
+        const next = teamMatches.find((match) => match.status === "scheduled" || match.status === "live");
+        const last = teamMatches.find((match) => match.status === "finished");
+        const helper = next
+          ? `Próximo: ${dateLabel(next.date)} ${next.time}`
+          : last ? `Último: ${last.homeScore ?? 0}-${last.awayScore ?? 0}` : "Equipo seguido";
+        return team ? [{ href: `/equipos/${team.id}`, label: team.name, helper }] : [];
       }
       if (type === "player") {
         const player = data.players.find((item) => item.id === id);
@@ -594,7 +652,7 @@ export function TeamHero({ team }: { team: Team }) {
     <Panel>
       <div className="p-5 text-center sm:p-6">
         <div className="flex justify-end">
-          <ShareFavoriteActions favoriteKey={`team:${team.id}`} />
+          <ShareFavoriteActions favoriteKey={`team:${team.id}`} shareText={`Mirá el equipo ${team.name} en Baires Torneos.`} />
         </div>
         <div className="mt-1 flex flex-col items-center">
           <TeamBadge team={team} size="xl" />
@@ -687,7 +745,7 @@ export function MatchHeader({ match, tournament }: { match: Match; tournament?: 
   const away = getTeam(match.awayTeamId);
   return (
     <Panel className="overflow-hidden">
-      <div className="bg-slate-950 p-3 text-white lg:p-5 dark:bg-black">
+      <div className={clsx("p-3 text-white lg:p-5 dark:bg-black", match.status === "live" ? "bg-[radial-gradient(circle_at_top,#064e3b_0%,#020617_62%)] ring-2 ring-emerald-400/40" : "bg-slate-950")}>
         <div className="lg:hidden">
           <div className="flex items-center justify-between gap-3">
             <span className="flex min-w-0 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-white/80">
@@ -702,14 +760,18 @@ export function MatchHeader({ match, tournament }: { match: Match; tournament?: 
               {statusLabel(match.status)}
             </span>
           </div>
+          {match.status === "live" ? <div className="mt-2 rounded-full bg-emerald-400 px-3 py-1 text-center text-[11px] font-black uppercase tracking-[0.18em] text-emerald-950">En juego ahora</div> : null}
+          <div className="mt-2 flex justify-end">
+            <WhatsAppShareButton text={`Mirá ${home?.name ?? "Local"} vs ${away?.name ?? "Visitante"} en Baires Torneos.`} />
+          </div>
 
           <div className="mt-3 rounded-[24px] border border-white/10 bg-black/30 px-3 py-3">
-            <div className="grid grid-cols-[minmax(0,1fr)_72px_minmax(0,1fr)] items-center gap-2 text-center">
+            <div className="grid grid-cols-[minmax(0,1fr)_78px_minmax(0,1fr)] items-center gap-2 text-center">
               <Link href={`/equipos/${home?.id}`} className="min-w-0 justify-self-center">
                 <TeamBadge team={home} size="md" />
                 <p className="mt-2 max-w-[92px] whitespace-normal break-words text-center text-[13px] font-black leading-tight">{home?.name}</p>
               </Link>
-              <div className="rounded-2xl border border-white/10 bg-white px-2 py-2 text-2xl font-black tabular-nums text-slate-950">
+              <div className="flex min-h-[52px] items-center justify-center rounded-2xl border border-white/10 bg-white px-2 py-2 text-center text-2xl font-black leading-none tabular-nums text-slate-950">
                 {match.status === "scheduled" ? match.time : `${match.homeScore ?? 0}-${match.awayScore ?? 0}`}
               </div>
               <Link href={`/equipos/${away?.id}`} className="min-w-0 justify-self-center">
@@ -718,12 +780,12 @@ export function MatchHeader({ match, tournament }: { match: Match; tournament?: 
               </Link>
             </div>
 
-            <div className="mt-3 flex items-center justify-center gap-2 text-[11px] font-bold text-white/70">
-              <span>{fullDateLabel(match.date)}</span>
-              <span>•</span>
-              <span>{match.time}</span>
-              <span>•</span>
-              <span className="truncate">{match.court}</span>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[11px] font-bold text-white/70">
+              <span className="shrink-0">{fullDateLabel(match.date)}</span>
+              <span className="shrink-0">•</span>
+              <span className="shrink-0">{match.time}</span>
+              <span className="shrink-0">•</span>
+              <span className="min-w-0 truncate">{match.court}</span>
             </div>
 
             <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-center">
@@ -736,15 +798,15 @@ export function MatchHeader({ match, tournament }: { match: Match; tournament?: 
 
         <div className="hidden lg:block">
         <div className="mb-5 flex items-center justify-between gap-3">
-          <span className={clsx("rounded-full px-2 py-1 text-xs font-black", statusTone(match.status))}>{statusLabel(match.status)}</span>
-          <ShareFavoriteActions favoriteKey={`match:${match.id}`} />
+          <span className={clsx("rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-[0.12em]", statusTone(match.status))}>{statusLabel(match.status)}</span>
+          <ShareFavoriteActions favoriteKey={`match:${match.id}`} shareText={`Mirá ${home?.name ?? "Local"} vs ${away?.name ?? "Visitante"} en Baires Torneos.`} />
         </div>
-        <div className="grid grid-cols-[minmax(0,1fr)_88px_minmax(0,1fr)] items-center gap-3 text-center">
+        <div className="grid grid-cols-[minmax(0,1fr)_96px_minmax(0,1fr)] items-center gap-3 text-center">
           <Link href={`/equipos/${home?.id}`} className="min-w-0 justify-self-center">
             <TeamBadge team={home} size="lg" />
             <p className="mt-2 max-w-[120px] whitespace-normal break-words text-center text-sm font-black leading-tight sm:text-lg">{home?.name}</p>
           </Link>
-          <div className="rounded-lg bg-white px-2 py-3 text-2xl font-black tabular-nums text-slate-950">
+          <div className="flex min-h-[54px] items-center justify-center rounded-lg bg-white px-2 py-3 text-center text-2xl font-black leading-none tabular-nums text-slate-950">
             {match.status === "scheduled" ? match.time : `${match.homeScore ?? 0}-${match.awayScore ?? 0}`}
           </div>
           <Link href={`/equipos/${away?.id}`} className="min-w-0 justify-self-center">

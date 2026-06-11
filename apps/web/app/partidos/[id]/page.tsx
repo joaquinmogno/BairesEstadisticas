@@ -205,7 +205,7 @@ export default function MatchPage() {
               {h2h.length ? h2h.map((item) => <MatchCard key={item.id} match={item} />) : <div className="p-4"><EmptyStateCard title="Sin antecedentes" message="Todavia no hay enfrentamientos anteriores entre estos equipos." /></div>}
             </>
           ) : null}
-          {active === "posiciones" ? <StandingTable rows={standings} highlightTeamIds={[match.homeTeamId, match.awayTeamId]} /> : null}
+          {active === "posiciones" ? <StandingTable rows={standings} highlightTeamIds={[match.homeTeamId, match.awayTeamId]} showZones={false} /> : null}
         </Panel>
       </PageWrap>
     </AppShell>
@@ -309,11 +309,18 @@ function MatchEventsBoard({
 }) {
   const homeGoals = goals.filter((event) => event.teamId === home?.id);
   const awayGoals = goals.filter((event) => event.teamId === away?.id);
+  const hasEvents = goals.length > 0 || yellowCards.length > 0 || redCards.length > 0 || Boolean(mvp);
 
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white text-slate-950 shadow-sm dark:border-white/10 dark:bg-[#111820] dark:text-white">
       <div className="space-y-4 p-4">
-        <div className="border-b border-slate-100 pb-4 dark:border-white/10">
+        {!hasEvents ? (
+          <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center dark:border-white/10 dark:bg-white/5">
+            <p className="text-sm font-black text-slate-950 dark:text-white">Todavía no se cargaron eventos del partido.</p>
+            <p className="mt-1 text-xs font-bold text-slate-500 dark:text-white/55">Cuando el administrador publique goles, tarjetas o MVP, van a aparecer acá.</p>
+          </div>
+        ) : null}
+        <div className={clsx("border-b border-slate-100 pb-4 dark:border-white/10", !hasEvents && "hidden")}>
           <div className="grid grid-cols-[minmax(0,1fr)_34px_minmax(0,1fr)] items-start gap-3">
             <TeamScorerColumn events={homeGoals} align="left" />
             <div className="mt-8 flex justify-center text-slate-400 dark:text-white/55">
@@ -328,7 +335,7 @@ function MatchEventsBoard({
           </div>
         </div>
 
-        <MvpCard mvp={mvp} />
+        {hasEvents ? <MvpCard mvp={mvp} /> : null}
       </div>
     </section>
   );

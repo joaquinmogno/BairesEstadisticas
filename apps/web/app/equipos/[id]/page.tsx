@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { MatchCard, PageWrap, Panel, PlayerCard, SectionTitle, StandingTable, StatGrid, Tabs, TeamHero, AppShell, Breadcrumbs, EmptyStateCard, FormDots, ContextLinksPanel, useRememberedTab } from "@/app/_components/sports-ui";
-import { getTeam, getTeamMatches, getTeamPlayers, getTeamStanding, getTournament, getTournamentStandings, useBairesData } from "@/lib/baires-data";
+import { getClubTeams, getTeam, getTeamMatches, getTeamPlayers, getTeamStanding, getTournament, getTournamentStandings, useBairesData } from "@/lib/baires-data";
 
 type Tab = "resumen" | "partidos" | "posiciones" | "plantel";
 
@@ -23,6 +24,7 @@ export default function TeamPage() {
   const [filter, setFilter] = useState("Todos");
   const team = id ? getTeam(id) : undefined;
   const tournament = team ? getTournament(team.tournamentId) : undefined;
+  const clubTeams = team ? getClubTeams(team.clubId) : [];
   const row = team ? getTeamStanding(team.id) : undefined;
   const teamMatches = team ? getTeamMatches(team.id) : [];
   const players = team ? getTeamPlayers(team.id) : [];
@@ -60,7 +62,7 @@ export default function TeamPage() {
         aside={
           <>
             <Panel>
-              <SectionTitle title="Estadisticas generales" />
+              <SectionTitle title="Estadisticas de esta competicion" />
               <StatGrid
                 items={[
                   { label: "PJ", value: row?.pj ?? 0 },
@@ -75,9 +77,16 @@ export default function TeamPage() {
               />
             </Panel>
             <ContextLinksPanel
-              title="Más del equipo"
+              title={clubTeams.length > 1 ? "Competiciones del club" : "Más del equipo"}
               items={[
-                tournament ? { href: `/torneos/${tournament.id}`, label: tournament.name, helper: "Volver al torneo completo" } : { href: "/", label: "Inicio", helper: "Sin torneo relacionado" },
+                ...clubTeams.map((participation) => {
+                  const participationTournament = getTournament(participation.tournamentId);
+                  return {
+                    href: `/equipos/${participation.id}`,
+                    label: participationTournament?.name ?? participation.name,
+                    helper: participation.id === team.id ? "Competicion actual" : "Ver ficha en esta competicion",
+                  };
+                }),
                 players[0] ? { href: `/jugadores/${players[0].id}`, label: players[0].name, helper: "Abrir un jugador del plantel" } : { href: "/", label: "Plantel pendiente", helper: "Todavía no hay jugadores cargados" },
                 { href: "/", label: "Inicio", helper: "Volver a los partidos del día" },
               ]}
@@ -87,6 +96,41 @@ export default function TeamPage() {
       >
         <Breadcrumbs items={[{ label: "Inicio", href: "/" }, { label: tournament?.name ?? "Torneo", href: `/torneos/${team.tournamentId}` }, { label: team.name }]} />
         <TeamHero team={team} />
+        <Panel>
+          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Vista de competición</p>
+              <p className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-400">Esta pantalla muestra los datos de {tournament?.name ?? "este torneo"}.</p>
+            </div>
+            <Link href={`/clubes/${team.clubId}`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-black text-white dark:bg-white dark:text-slate-950">
+              Ver ficha global
+            </Link>
+          </div>
+        </Panel>
+        {clubTeams.length > 1 ? (
+          <Panel>
+            <SectionTitle title="Competiciones" />
+            <div className="flex gap-2 overflow-x-auto px-4 pb-4">
+              {clubTeams.map((participation) => {
+                const participationTournament = getTournament(participation.tournamentId);
+                const activeParticipation = participation.id === team.id;
+                return (
+                  <Link
+                    key={participation.id}
+                    href={`/equipos/${participation.id}`}
+                    className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-black transition ${
+                      activeParticipation
+                        ? "border-slate-950 bg-slate-950 text-white dark:border-white dark:bg-white dark:text-slate-950"
+                        : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+                    }`}
+                  >
+                    {participationTournament?.name ?? participation.name}
+                  </Link>
+                );
+              })}
+            </div>
+          </Panel>
+        ) : null}
         <Panel>
           <Tabs tabs={tabs} active={active} onChange={setActive} />
           {active === "resumen" ? (

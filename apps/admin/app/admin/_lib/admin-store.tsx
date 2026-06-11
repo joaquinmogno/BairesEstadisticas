@@ -21,9 +21,9 @@ export type Tournament = {
   type: "league" | "cup" | "groups_playoffs" | "knockout";
 };
 
-export type Team = { id: string; tournamentId: string; name: string; badge: string; badgeUrl?: string; colors?: string; photoUrl?: string; category?: string };
+export type Team = { id: string; tournamentId: string; clubId?: string; name: string; badge: string; badgeUrl?: string; colors?: string; photoUrl?: string; category?: string };
 
-export type Player = { id: string; name: string; lastName?: string; teamId: string; number?: number; position?: string; birthDate?: string; photoUrl?: string };
+export type Player = { id: string; name: string; lastName?: string; teamId: string; clubId?: string; teamIds?: string[]; number?: number; position?: string; birthDate?: string; photoUrl?: string };
 
 export type Matchday = { id: string; tournamentId: string; name: string };
 
@@ -83,10 +83,10 @@ type AdminState = {
   isReadOnly: boolean;
   readOnlyReason?: string;
   /* crud */
-  addTournament: (data: Pick<Tournament, "name" | "startDate"> & Partial<Pick<Tournament, "category" | "season" | "rules" | "type">>) => AsyncMutation;
+  addTournament: (data: Pick<Tournament, "name" | "startDate"> & Partial<Pick<Tournament, "category" | "season" | "rules" | "type">>) => Promise<Tournament>;
   updateTournament: (tournamentId: string, data: Partial<Tournament>) => AsyncMutation;
   deleteTournament: (tournamentId: string) => AsyncMutation;
-  addTeam: (data: Pick<Team, "tournamentId" | "name" | "badge"> & Partial<Pick<Team, "badgeUrl" | "photoUrl" | "category" | "colors">>) => AsyncMutation;
+  addTeam: (data: Pick<Team, "tournamentId" | "name" | "badge"> & Partial<Pick<Team, "clubId" | "badgeUrl" | "photoUrl" | "category" | "colors">> & { sourceTeamId?: string; sourcePlayerIds?: string[] }) => Promise<Team>;
   updateTeam: (teamId: string, data: Partial<Team>) => AsyncMutation;
   deleteTeam: (teamId: string) => AsyncMutation;
   addPlayer: (data: Pick<Player, "name" | "teamId"> & Partial<Pick<Player, "lastName" | "number" | "position" | "birthDate" | "photoUrl">>) => AsyncMutation;
@@ -161,6 +161,12 @@ function normalizeText(value?: string) {
 
 function argentinaDateTime(date: string, time: string) {
   return `${date}T${time}:00-03:00`;
+}
+
+function dateOnly(value?: string) {
+  if (!value) return undefined;
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : value;
 }
 
 async function apiRequest<T = unknown>(path: string, init?: RequestInit): Promise<T> {
@@ -300,10 +306,10 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     };
     const assertUniquePlayer = (teamId: string, name: string, lastName?: string, number?: number, currentPlayerId?: string) => {
       const normalizedName = normalizeText(`${name} ${lastName ?? ""}`);
-      const duplicatedName = players.some((player) => player.id !== currentPlayerId && player.teamId === teamId && normalizeText(`${player.name} ${player.lastName ?? ""}`) === normalizedName);
+      const duplicatedName = players.some((player) => player.id !== currentPlayerId && (player.teamId === teamId || player.teamIds?.includes(teamId)) && normalizeText(`${player.name} ${player.lastName ?? ""}`) === normalizedName);
       if (duplicatedName) throw new Error("Ya existe un jugador con ese nombre en el equipo.");
       if (number !== undefined) {
-        const duplicatedNumber = players.some((player) => player.id !== currentPlayerId && player.teamId === teamId && player.number === number);
+        const duplicatedNumber = players.some((player) => player.id !== currentPlayerId && (player.teamId === teamId || player.teamIds?.includes(teamId)) && player.number === number);
         if (duplicatedNumber) throw new Error("Ese dorsal ya esta asignado a otro jugador del equipo.");
       }
     };
@@ -341,7 +347,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       getTeam, getPlayer, getTournament, getMatchday, getMatchScore, isPlayerExpelled,
 
       teamsByTournament: (tid: string) => teams.filter((t) => t.tournamentId === tid),
-      playersByTeam: (tid: string) => players.filter((p) => p.teamId === tid),
+      playersByTeam: (tid: string) => players.filter((p) => p.teamId === tid || p.teamIds?.includes(tid)),
       matchdaysByTournament: (tid: string) => matchdays.filter((m) => m.tournamentId === tid),
       matchesByMatchday: (mid: string) => matches.filter((m) => m.matchdayId === mid),
 
@@ -404,7 +410,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       topScorers: (tournamentId) => {
         const allowedTeams = tournamentId ? new Set(teams.filter((team) => team.tournamentId === tournamentId).map((team) => team.id)) : null;
         return players
-          .filter((player) => !allowedTeams || allowedTeams.has(player.teamId))
+          .filter((player) => !allowedTeams || allowedTeams.has(player.teamId) || player.teamIds?.some((teamId) => allowedTeams.has(teamId)))
           .map((player) => {
             const stats = emptyStats(player.id);
             matches.forEach((match) => match.events.forEach((event) => {
@@ -425,6 +431,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         assertWritable();
         const created = await apiRequest<Tournament>("/tournaments", { method: "POST", body: JSON.stringify({ name, startDate, category, season, rules, type }) });
         setTournaments((c) => [...c, created]);
+        return created;
       },
 
       updateTournament: async (tournamentId, data) => {
@@ -441,16 +448,28 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         const matchdayIds = new Set(matchdays.filter((matchday) => matchday.tournamentId === tournamentId).map((matchday) => matchday.id));
         setTournaments((c) => c.filter((tournament) => tournament.id !== tournamentId));
         setTeams((c) => c.filter((team) => team.tournamentId !== tournamentId));
-        setPlayers((c) => c.filter((player) => !teamIds.has(player.teamId)));
+        setPlayers((c) => c
+          .map((player) => {
+            const teamIdsLeft = player.teamIds?.filter((id) => !teamIds.has(id));
+            return { ...player, teamId: teamIds.has(player.teamId) ? teamIdsLeft?.[0] ?? player.teamId : player.teamId, teamIds: teamIdsLeft };
+          })
+          .filter((player) => !teamIds.has(player.teamId) || (player.teamIds?.length ?? 0) > 0));
         setMatchdays((c) => c.filter((matchday) => matchday.tournamentId !== tournamentId));
         setMatches((c) => c.filter((match) => match.tournamentId !== tournamentId && !matchdayIds.has(match.matchdayId)));
       },
 
-      addTeam: async ({ tournamentId, name, badge, badgeUrl, photoUrl, category, colors }) => {
+      addTeam: async ({ tournamentId, clubId, sourceTeamId, sourcePlayerIds, name, badge, badgeUrl, photoUrl, category, colors }) => {
         assertWritable();
         assertUniqueTeam(tournamentId, name);
-        const created = await apiRequest<Team>("/teams", { method: "POST", body: JSON.stringify({ tournamentId, name, badgeUrl, photoUrl, category, colors }) });
+        const created = await apiRequest<Team>("/teams", { method: "POST", body: JSON.stringify({ tournamentId, clubId, sourceTeamId, sourcePlayerIds, name, badgeUrl, photoUrl, category, colors }) });
         setTeams((c) => [...c, { ...created, badge: badge || name.slice(0, 2).toUpperCase() }]);
+        if (sourceTeamId) {
+          const selectedPlayerIds = sourcePlayerIds?.length ? new Set(sourcePlayerIds) : null;
+          setPlayers((c) => c.map((player) => (player.teamId === sourceTeamId || player.teamIds?.includes(sourceTeamId)) && (!selectedPlayerIds || selectedPlayerIds.has(player.id))
+            ? { ...player, teamIds: Array.from(new Set([...(player.teamIds ?? [player.teamId]), created.id])) }
+            : player));
+        }
+        return created;
       },
 
       updateTeam: async (teamId, data) => {
@@ -465,7 +484,12 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         assertWritable();
         await apiRequest(`/teams/${teamId}`, { method: "DELETE" });
         setTeams((c) => c.filter((team) => team.id !== teamId));
-        setPlayers((c) => c.filter((player) => player.teamId !== teamId));
+        setPlayers((c) => c
+          .map((player) => {
+            const teamIdsLeft = player.teamIds?.filter((id) => id !== teamId);
+            return { ...player, teamId: player.teamId === teamId ? teamIdsLeft?.[0] ?? player.teamId : player.teamId, teamIds: teamIdsLeft };
+          })
+          .filter((player) => player.teamId !== teamId || (player.teamIds?.length ?? 0) > 0));
         setMatches((c) => c.filter((match) => match.homeTeamId !== teamId && match.awayTeamId !== teamId));
       },
 
@@ -478,9 +502,11 @@ export function AdminProvider({ children }: { children: ReactNode }) {
           name: created.firstName ?? created.name ?? name,
           lastName: created.lastName ?? lastName,
           teamId,
+          clubId: created.clubId,
+          teamIds: created.teamIds ?? [teamId],
           number: created.number ?? number,
           position: created.position ?? position ?? "Jugador",
-          birthDate: created.birthDate ?? birthDate,
+          birthDate: dateOnly(created.birthDate) ?? birthDate,
           photoUrl: created.photoUrl ?? photoUrl,
         }]);
       },
@@ -490,8 +516,14 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         const { name, ...rest } = data;
         const current = players.find((player) => player.id === playerId);
         assertUniquePlayer(rest.teamId ?? current?.teamId ?? "", name ?? current?.name ?? "", rest.lastName ?? current?.lastName, rest.number ?? current?.number, playerId);
-        await apiRequest(`/players/${playerId}`, { method: "PATCH", body: JSON.stringify(name ? { ...rest, firstName: name } : rest) });
-        setPlayers((c) => c.map((player) => player.id === playerId ? { ...player, ...data } : player));
+        const updated = await apiRequest<Player & { firstName?: string }>(`/players/${playerId}`, { method: "PATCH", body: JSON.stringify(name ? { ...rest, firstName: name } : rest) });
+        setPlayers((c) => c.map((player) => player.id === playerId ? {
+          ...player,
+          ...data,
+          clubId: updated.clubId ?? player.clubId,
+          teamIds: updated.teamIds ?? (data.teamId ? Array.from(new Set([...(player.teamIds ?? [player.teamId]), data.teamId])) : player.teamIds),
+          birthDate: dateOnly(updated.birthDate) ?? data.birthDate,
+        } : player));
       },
 
       deletePlayer: async (playerId) => {

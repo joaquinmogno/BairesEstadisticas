@@ -16,6 +16,7 @@ export type PlayerPosition = "Arquero" | "Defensor" | "Mediocampista" | "Delante
 
 export type Team = {
   id: string;
+  clubId: string;
   name: string;
   shortName: string;
   badge: string;
@@ -30,6 +31,8 @@ export type Team = {
 export type Player = {
   id: string;
   teamId: string;
+  clubId: string;
+  teamIds: string[];
   name: string;
   number: number;
   position: PlayerPosition;
@@ -52,6 +55,15 @@ export type Tournament = {
   rounds: number;
   venue: string;
   logo?: string;
+};
+
+export type Club = {
+  id: string;
+  name: string;
+  badgeUrl?: string;
+  colors?: string;
+  photoUrl?: string;
+  category?: string;
 };
 
 export type MatchEvent = {
@@ -101,6 +113,7 @@ export type Standing = {
 
 type PublicData = {
   tournaments: Tournament[];
+  clubs: Club[];
   teams: Team[];
   players: Player[];
   matches: Match[];
@@ -116,6 +129,7 @@ type StoreState = {
 
 const emptyData: PublicData = {
   tournaments: [],
+  clubs: [],
   teams: [],
   players: [],
   matches: [],
@@ -203,8 +217,18 @@ function dynamicArray<T>(loader: () => T[]): T[] {
 }
 
 function mapSnapshotToPublicData(snapshot: SnapshotPayload): PublicData {
+  const clubs = (snapshot.clubs ?? []).map<Club>((club) => ({
+    id: club.id,
+    name: club.name,
+    badgeUrl: club.badgeUrl,
+    colors: club.colors,
+    photoUrl: club.photoUrl,
+    category: club.category,
+  }));
+
   const teams = snapshot.teams.map<Team>((team, index) => ({
     id: team.id,
+    clubId: team.clubId,
     name: team.name,
     shortName: initials(team.name),
     badge: team.badge || initials(team.name),
@@ -248,6 +272,8 @@ function mapSnapshotToPublicData(snapshot: SnapshotPayload): PublicData {
     return {
       id: player.id,
       teamId: player.teamId,
+      clubId: player.clubId,
+      teamIds: player.teamIds?.length ? player.teamIds : [player.teamId],
       name: fullName || player.name,
       number: player.number ?? 0,
       position: normalizePosition(player.position),
@@ -279,7 +305,7 @@ function mapSnapshotToPublicData(snapshot: SnapshotPayload): PublicData {
     venue: `Temporada ${tournament.season}`,
   }));
 
-  return { tournaments, teams, players, matches, standings, rankings: snapshot.rankings ?? [] };
+  return { tournaments, clubs, teams, players, matches, standings, rankings: snapshot.rankings ?? [] };
 }
 
 function mapTournamentStatus(status: SnapshotPayload["tournaments"][number]["status"]): Tournament["status"] {
@@ -477,6 +503,7 @@ function defaultPlayerPhoto(index: number) {
 }
 
 export const tournaments = dynamicArray(() => storeState.data.tournaments);
+export const clubs = dynamicArray(() => storeState.data.clubs);
 export const teams = dynamicArray(() => storeState.data.teams);
 export const players = dynamicArray(() => storeState.data.players);
 export const matches = dynamicArray(() => storeState.data.matches);
@@ -485,6 +512,10 @@ export const rankings = dynamicArray(() => storeState.data.rankings);
 
 export function getTeam(id: string) {
   return teams.find((team) => team.id === id);
+}
+
+export function getClub(id: string) {
+  return clubs.find((club) => club.id === id);
 }
 
 export function getPlayer(id: string) {
@@ -500,7 +531,11 @@ export function getMatch(id: string) {
 }
 
 export function getTeamPlayers(teamId: string) {
-  return players.filter((player) => player.teamId === teamId);
+  return players.filter((player) => player.teamId === teamId || player.teamIds.includes(teamId));
+}
+
+export function getClubTeams(clubId: string) {
+  return teams.filter((team) => team.clubId === clubId);
 }
 
 export function getTournamentTeams(tournamentId: string) {

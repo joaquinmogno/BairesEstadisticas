@@ -67,10 +67,10 @@ export class StatsService {
   }
 
   async tournamentRankings(tournamentId: string): Promise<SnapshotTournamentRankings> {
-    const [players, matches] = await Promise.all([
-      this.prisma.player.findMany({
+    const [rosters, matches] = await Promise.all([
+      this.prisma.rosterPlayer.findMany({
         where: { team: { tournamentId } },
-        select: { id: true, teamId: true },
+        select: { playerId: true, teamId: true },
       }),
       this.prisma.match.findMany({
         where: { tournamentId },
@@ -79,8 +79,8 @@ export class StatsService {
     ]);
 
     const seed = new Map<string, { playerId: string; teamId: string; goals: number; assists: number; yellowCards: number; redCards: number }>();
-    for (const player of players) {
-      seed.set(player.id, { playerId: player.id, teamId: player.teamId, goals: 0, assists: 0, yellowCards: 0, redCards: 0 });
+    for (const roster of rosters) {
+      seed.set(roster.playerId, { playerId: roster.playerId, teamId: roster.teamId, goals: 0, assists: 0, yellowCards: 0, redCards: 0 });
     }
 
     for (const match of matches) {

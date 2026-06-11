@@ -65,7 +65,6 @@ export default function AdminLoginPage() {
           <PrimaryButton disabled={!user || !password || loading} onClick={login}>
             {loading ? "Ingresando..." : "Ingresar"}
           </PrimaryButton>
-          <p className="text-xs font-bold text-slate-500">La sesion se guarda en una cookie segura del servidor admin.</p>
         </div>
       </section>
     </main>

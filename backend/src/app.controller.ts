@@ -70,10 +70,11 @@ export class AppController {
   @Public()
   @Get("snapshot")
   async snapshot(): Promise<SnapshotPayload> {
-    const [tournaments, teams, players, matchdays, matches, rankings] = await Promise.all([
+    const [tournaments, clubs, teams, players, matchdays, matches, rankings] = await Promise.all([
       this.prisma.tournament.findMany({ orderBy: { createdAt: "asc" } }),
-      this.prisma.team.findMany({ orderBy: { createdAt: "asc" } }),
-      this.prisma.player.findMany({ orderBy: { createdAt: "asc" } }),
+      this.prisma.club.findMany({ orderBy: { createdAt: "asc" } }),
+      this.prisma.team.findMany({ include: { club: true }, orderBy: { createdAt: "asc" } }),
+      this.prisma.player.findMany({ include: { rosters: true }, orderBy: { createdAt: "asc" } }),
       this.prisma.matchday.findMany({ orderBy: { sortOrder: "asc" } }),
       this.prisma.match.findMany({ include: { events: true, lineup: true, matchday: true }, orderBy: { startsAt: "asc" } }),
       Promise.all(
@@ -95,19 +96,30 @@ export class AppController {
         status: tournament.status,
         type: tournament.type,
       })),
+      clubs: clubs.map((club) => ({
+        id: club.id,
+        name: club.name,
+        badgeUrl: club.badgeUrl ?? undefined,
+        colors: club.colors ?? undefined,
+        photoUrl: club.photoUrl ?? undefined,
+        category: club.category ?? undefined,
+      })),
       teams: teams.map((team) => ({
         id: team.id,
         tournamentId: team.tournamentId,
-        name: team.name,
-        badge: initials(team.name),
-        badgeUrl: team.badgeUrl ?? undefined,
-        colors: team.colors ?? undefined,
-        photoUrl: team.photoUrl ?? undefined,
-        category: team.category ?? undefined,
+        clubId: team.clubId,
+        name: team.club.name,
+        badge: initials(team.club.name),
+        badgeUrl: team.club.badgeUrl ?? team.badgeUrl ?? undefined,
+        colors: team.club.colors ?? team.colors ?? undefined,
+        photoUrl: team.club.photoUrl ?? team.photoUrl ?? undefined,
+        category: team.category ?? team.club.category ?? undefined,
       })),
       players: players.map((player) => ({
         id: player.id,
         teamId: player.teamId,
+        clubId: player.clubId,
+        teamIds: Array.from(new Set([player.teamId, ...player.rosters.map((roster) => roster.teamId)])),
         name: player.firstName,
         lastName: player.lastName,
         number: player.number ?? undefined,
@@ -178,23 +190,93 @@ export class AppController {
   }
 
   @Delete("tournaments/:id")
-  deleteTournament(@Param("id") id: string) {
+  async deleteTournament(@Param("id") id: string) {
+    const tournamentTeams = await this.prisma.team.findMany({ where: { tournamentId: id }, select: { id: true } });
+    const teamIds = tournamentTeams.map((team) => team.id);
+    const primaryPlayers = await this.prisma.player.findMany({
+      where: { teamId: { in: teamIds } },
+      include: { rosters: { where: { teamId: { notIn: teamIds } }, include: { team: true } } },
+    });
+    await Promise.all(primaryPlayers.map((player) => {
+      const nextRoster = player.rosters[0];
+      if (!nextRoster) return Promise.resolve();
+      return this.prisma.player.update({
+        where: { id: player.id },
+        data: { teamId: nextRoster.teamId, clubId: nextRoster.team.clubId },
+      });
+    }));
     return this.prisma.tournament.delete({ where: { id } });
   }
 
   @Get("teams")
   teams() {
-    return this.prisma.team.findMany({ include: { players: true, tournament: true }, orderBy: { createdAt: "asc" } });
+    return this.prisma.team.findMany({ include: { club: true, roster: { include: { player: true } }, tournament: true }, orderBy: { createdAt: "asc" } });
   }
 
   @Post("teams")
-  createTeam(@Body() body: CreateTeamDto) {
-    return this.prisma.team.create({ data: body });
+  async createTeam(@Body() body: CreateTeamDto) {
+    const club = body.clubId
+      ? await this.prisma.club.findUnique({ where: { id: body.clubId } })
+      : await this.prisma.club.create({
+          data: {
+            name: body.name,
+            badgeUrl: body.badgeUrl,
+            colors: body.colors,
+            photoUrl: body.photoUrl,
+            category: body.category,
+          },
+        });
+    if (!club) throw new BadRequestException("Club no encontrado");
+    const team = await this.prisma.team.create({
+      data: {
+        tournamentId: body.tournamentId,
+        clubId: club.id,
+        name: body.name,
+        badgeUrl: body.badgeUrl,
+        colors: body.colors,
+        photoUrl: body.photoUrl,
+        category: body.category,
+      },
+    });
+    if (body.sourceTeamId) {
+      const sourceRoster = await this.prisma.rosterPlayer.findMany({
+        where: {
+          teamId: body.sourceTeamId,
+          ...(Array.isArray(body.sourcePlayerIds) ? { playerId: { in: body.sourcePlayerIds } } : {}),
+        },
+      });
+      if (sourceRoster.length) {
+        await this.prisma.rosterPlayer.createMany({
+          data: sourceRoster.map((roster) => ({
+            teamId: team.id,
+            playerId: roster.playerId,
+            number: roster.number,
+            position: roster.position,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    }
+    return team;
   }
 
   @Patch("teams/:id")
-  updateTeam(@Param("id") id: string, @Body() body: UpdateTeamDto) {
-    return this.prisma.team.update({ where: { id }, data: body });
+  async updateTeam(@Param("id") id: string, @Body() body: UpdateTeamDto) {
+    const team = await this.prisma.team.update({ where: { id }, data: body });
+    const clubFields = {
+      name: body.name,
+      badgeUrl: body.badgeUrl,
+      colors: body.colors,
+      photoUrl: body.photoUrl,
+      category: body.category,
+    };
+    if (Object.values(clubFields).some((value) => value !== undefined)) {
+      await this.prisma.club.update({
+        where: { id: team.clubId },
+        data: Object.fromEntries(Object.entries(clubFields).filter(([, value]) => value !== undefined)),
+      });
+    }
+    return team;
   }
 
   @Delete("teams/:id")
@@ -203,21 +285,36 @@ export class AppController {
       where: { OR: [{ homeTeamId: id }, { awayTeamId: id }] },
       select: { id: true },
     });
+    const primaryPlayers = await this.prisma.player.findMany({
+      where: { teamId: id },
+      include: { rosters: { where: { teamId: { not: id } }, include: { team: true } } },
+    });
+    await Promise.all(primaryPlayers.map((player) => {
+      const nextRoster = player.rosters[0];
+      if (!nextRoster) return Promise.resolve();
+      return this.prisma.player.update({
+        where: { id: player.id },
+        data: { teamId: nextRoster.teamId, clubId: nextRoster.team.clubId },
+      });
+    }));
     await this.prisma.match.deleteMany({ where: { id: { in: matches.map((match) => match.id) } } });
-    await this.prisma.player.deleteMany({ where: { teamId: id } });
+    await this.prisma.rosterPlayer.deleteMany({ where: { teamId: id } });
     return this.prisma.team.delete({ where: { id } });
   }
 
   @Get("players")
   players() {
-    return this.prisma.player.findMany({ include: { team: true }, orderBy: { createdAt: "asc" } });
+    return this.prisma.player.findMany({ include: { club: true, rosters: { include: { team: true } }, team: true }, orderBy: { createdAt: "asc" } });
   }
 
   @Post("players")
-  createPlayer(@Body() body: CreatePlayerDto) {
-    return this.prisma.player.create({
+  async createPlayer(@Body() body: CreatePlayerDto) {
+    const team = await this.prisma.team.findUnique({ where: { id: body.teamId } });
+    if (!team) throw new BadRequestException("Equipo no encontrado");
+    const player = await this.prisma.player.create({
       data: {
         teamId: body.teamId,
+        clubId: team.clubId,
         firstName: body.firstName,
         lastName: body.lastName ?? "",
         number: body.number,
@@ -226,18 +323,38 @@ export class AppController {
         photoUrl: body.photoUrl,
       },
     });
+    await this.prisma.rosterPlayer.create({
+      data: {
+        teamId: body.teamId,
+        playerId: player.id,
+        number: body.number,
+        position: normalizePlayerPosition(body.position),
+      },
+    });
+    return player;
   }
 
   @Patch("players/:id")
-  updatePlayer(@Param("id") id: string, @Body() body: UpdatePlayerDto) {
-    return this.prisma.player.update({
+  async updatePlayer(@Param("id") id: string, @Body() body: UpdatePlayerDto) {
+    const targetTeam = body.teamId ? await this.prisma.team.findUnique({ where: { id: body.teamId } }) : null;
+    if (body.teamId && !targetTeam) throw new BadRequestException("Equipo no encontrado");
+    const player = await this.prisma.player.update({
       where: { id },
       data: {
         ...body,
+        clubId: body.clubId ?? targetTeam?.clubId,
         position: body.position !== undefined ? normalizePlayerPosition(body.position) : undefined,
         birthDate: parseDateOnly(body.birthDate),
       },
     });
+    if (body.teamId) {
+      await this.prisma.rosterPlayer.upsert({
+        where: { teamId_playerId: { teamId: body.teamId, playerId: id } },
+        create: { teamId: body.teamId, playerId: id, number: body.number, position: body.position !== undefined ? normalizePlayerPosition(body.position) : undefined },
+        update: { number: body.number, position: body.position !== undefined ? normalizePlayerPosition(body.position) : undefined },
+      });
+    }
+    return player;
   }
 
   @Delete("players/:id")
@@ -303,6 +420,7 @@ export class AppController {
 
   @Post("matches/:id/events")
   async addEvent(@Param("id") matchId: string, @Body() body: EventDto) {
+    await this.assertEventAllowed(matchId, body.teamId, body.playerId);
     if (body.type === EventType.mvp) {
       await this.prisma.matchEvent.deleteMany({ where: { matchId, type: EventType.mvp } });
     }
@@ -315,6 +433,10 @@ export class AppController {
 
   @Patch("matches/:matchId/events/:eventId")
   async updateEvent(@Param("matchId") matchId: string, @Param("eventId") eventId: string, @Body() body: UpdateEventDto) {
+    if (body.teamId || body.playerId) {
+      const current = await this.prisma.matchEvent.findUnique({ where: { id: eventId } });
+      await this.assertEventAllowed(matchId, body.teamId ?? current?.teamId ?? "", body.playerId ?? current?.playerId ?? undefined);
+    }
     if (body.type === EventType.mvp) {
       await this.prisma.matchEvent.deleteMany({ where: { matchId, type: EventType.mvp, id: { not: eventId } } });
     }
@@ -432,6 +554,7 @@ export class AppController {
   async saveLineup(@Param("id") matchId: string, @Body() body: SaveLineupDto) {
     await this.prisma.lineupPlayer.deleteMany({ where: { matchId } });
     if (!body.players.length) return [];
+    await Promise.all(body.players.map((player) => this.assertEventAllowed(matchId, player.teamId, player.playerId)));
     return this.prisma.lineupPlayer.createMany({ data: body.players.map((player) => ({ ...player, matchId })) });
   }
 
@@ -534,6 +657,19 @@ export class AppController {
       },
     });
   }
+
+  private async assertEventAllowed(matchId: string, teamId: string, playerId?: string | null) {
+    const match = await this.prisma.match.findUnique({ where: { id: matchId }, select: { homeTeamId: true, awayTeamId: true } });
+    if (!match) throw new BadRequestException("Partido no encontrado");
+    if (teamId !== match.homeTeamId && teamId !== match.awayTeamId) {
+      throw new BadRequestException("El equipo no pertenece a este partido");
+    }
+    if (!playerId) return;
+    const roster = await this.prisma.rosterPlayer.findUnique({ where: { teamId_playerId: { teamId, playerId } } });
+    if (!roster) {
+      throw new BadRequestException("El jugador no esta habilitado en el plantel de esta competicion");
+    }
+  }
 }
 
 function toDate(value?: Date | null) {
@@ -554,6 +690,11 @@ function parseDateOnly(value?: string) {
   if (!value) return undefined;
   const trimmed = value.trim();
   if (!trimmed) return undefined;
+  const dayMonthYear = trimmed.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
+  if (dayMonthYear) {
+    const [, day, month, year] = dayMonthYear;
+    return new Date(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T12:00:00${APP_TIME_ZONE_OFFSET}`);
+  }
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
     return new Date(`${trimmed}T12:00:00${APP_TIME_ZONE_OFFSET}`);
   }

@@ -45,6 +45,9 @@ describe("AppController", () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         create: jest.fn().mockResolvedValue(createdEvent),
       },
+      rosterPlayer: {
+        findUnique: jest.fn().mockResolvedValue({ teamId: "team-a", playerId: "player-1" }),
+      },
       match: {
         findUnique: jest.fn().mockResolvedValue({
           id: "match-1",
@@ -75,6 +78,9 @@ describe("AppController", () => {
       matchEvent: {
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
         create: jest.fn().mockResolvedValue(createdEvent),
+      },
+      rosterPlayer: {
+        findUnique: jest.fn().mockResolvedValue({ teamId: "team-a", playerId: "player-2" }),
       },
       match: {
         findUnique: jest.fn().mockResolvedValue({
