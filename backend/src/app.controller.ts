@@ -686,7 +686,8 @@ function toDate(value?: Date | null) {
   return year && month && day ? `${year}-${month}-${day}` : undefined;
 }
 
-function parseDateOnly(value?: string) {
+function parseDateOnly(value?: string | null) {
+  if (value === null) return null;
   if (!value) return undefined;
   const trimmed = value.trim();
   if (!trimmed) return undefined;

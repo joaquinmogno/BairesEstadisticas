@@ -692,7 +692,7 @@ function EditPlayerInlineForm({
             name,
             number: number ? Number(number) : undefined,
             position: normalizePlayerPosition(position),
-            birthDate: birthDate || undefined,
+            birthDate: birthDate || null,
             photoUrl: photoUrl || undefined,
           })}
           className="flex-1 min-h-10 rounded-lg bg-emerald-700 text-xs font-black text-white disabled:opacity-50"
@@ -1019,7 +1019,7 @@ function FechasTab({ tournamentId }: { tournamentId: string }) {
 }
 
 function PartidosTab({ tournamentId, onEdit }: { tournamentId: string; onEdit: (id: string) => void }) {
-  const { matchdaysByTournament, matchesByMatchday, teamsByTournament, playersByTeam, getTeam, getMatchScore, addMatch, deleteMatch } = useAdmin();
+  const { matchdaysByTournament, matchesByMatchday, teamsByTournament, playersByTeam, getTeam, getMatchScore, addMatchday, addMatch, deleteMatch } = useAdmin();
   const matchdays = matchdaysByTournament(tournamentId);
   const teams = teamsByTournament(tournamentId);
   const teamLookup = useMemo(() => new Map(teams.map((team) => [normalizeLookupValue(team.name), team])), [teams]);
@@ -1033,7 +1033,7 @@ function PartidosTab({ tournamentId, onEdit }: { tournamentId: string; onEdit: (
   const [day, setDay] = useState(new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", weekday: "long" }).format(new Date()));
   const [time, setTime] = useState("20:00");
   const [court, setCourt] = useState("Cancha 1");
-  const [bulkRows, setBulkRows] = useState("local,visitante,fecha,hora,cancha,dia");
+  const [bulkRows, setBulkRows] = useState("local,visitante,fecha,hora,cancha,dia\nVilla Luro FC,La Viola,1,20:00,Cancha 1,11/06/2026");
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
@@ -1061,11 +1061,6 @@ function PartidosTab({ tournamentId, onEdit }: { tournamentId: string; onEdit: (
   const canCreate = homeId && awayId && homeId !== awayId && selectedMatchday && time && date;
 
   async function importFixtureBlock() {
-    if (!selectedMatchday) {
-      setMsg("Elegí primero una fecha del torneo para importar el bloque de partidos.");
-      return;
-    }
-
     const rows = parseCsvBlock(bulkRows);
     if (!rows.length) {
       setMsg("Pegá un CSV de fixture antes de importar.");
@@ -1074,24 +1069,35 @@ function PartidosTab({ tournamentId, onEdit }: { tournamentId: string; onEdit: (
 
     try {
       let imported = 0;
+      const matchdayLookup = new Map(matchdays.map((item) => [normalizeLookupValue(item.name), item.id]));
       for (const row of rows) {
-        const [homeName, awayName, rowDate, rowTime, rowCourt, rowDay] = row;
+        const [homeName, awayName, rowMatchday, rowTime, rowCourt, rowDay] = row;
         if (!homeName || !awayName || normalizeLookupValue(homeName) === "local") continue;
         const homeTeam = teamLookup.get(normalizeLookupValue(homeName));
         const awayTeam = teamLookup.get(normalizeLookupValue(awayName));
         if (!homeTeam || !awayTeam) throw new Error(`No encontramos ambos equipos para la fila "${homeName} vs ${awayName}".`);
-        if (!rowDate || !rowTime) throw new Error(`La fila "${homeName} vs ${awayName}" está incompleta: faltan fecha u horario.`);
-        const parsedDate = parseDateInput(rowDate);
-        if (!parsedDate) throw new Error(`La fecha "${rowDate}" no tiene un formato válido.`);
+        if (!rowTime || !rowDay) throw new Error(`La fila "${homeName} vs ${awayName}" está incompleta: faltan hora o dia.`);
+
+        const matchdayName = normalizeMatchdayImportName(rowMatchday);
+        let matchdayId = matchdayName ? matchdayLookup.get(normalizeLookupValue(matchdayName)) : selectedMatchday;
+        if (!matchdayId && matchdayName) {
+          const created = await addMatchday({ tournamentId, name: matchdayName });
+          matchdayId = created.id;
+          matchdayLookup.set(normalizeLookupValue(created.name), created.id);
+        }
+        if (!matchdayId) throw new Error(`La fila "${homeName} vs ${awayName}" no tiene fecha del torneo. Usá 1, 2, 3 o elegí una fecha antes de importar.`);
+
+        const parsedDate = parseDateInput(rowDay);
+        if (!parsedDate || !isDateOnlyValue(parsedDate)) throw new Error(`El dia "${rowDay}" no tiene un formato válido. Usá DD/MM/AAAA.`);
         await addMatch({
           tournamentId,
-          matchdayId: selectedMatchday,
+          matchdayId,
           homeTeamId: homeTeam.id,
           awayTeamId: awayTeam.id,
           date: parsedDate,
           time: rowTime,
           court: rowCourt || "Cancha 1",
-          day: rowDay || dayNameFromDate(parsedDate),
+          day: dayNameFromDate(parsedDate),
         });
         imported += 1;
       }
@@ -1221,7 +1227,10 @@ function PartidosTab({ tournamentId, onEdit }: { tournamentId: string; onEdit: (
       {showBulk ? (
         <section className="rounded-2xl bg-white p-3.5 shadow-sm ring-1 ring-slate-200">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Importar fixture</p>
-          <p className="mt-1 text-sm font-bold text-slate-500">Formato: <span className="font-black">local, visitante, fecha, hora, cancha, dia</span>. Se importa dentro de la fecha seleccionada.</p>
+          <p className="mt-1 text-sm font-bold text-slate-500">
+            Formato: <span className="font-black">local, visitante, fecha, hora, cancha, dia</span>.
+            <span className="block">Fecha es la jornada del torneo; dia es la fecha calendario en DD/MM/AAAA.</span>
+          </p>
           <TextArea value={bulkRows} onChange={(event) => setBulkRows(event.target.value)} className="mt-3 min-h-40" />
           <PrimaryButton onClick={() => void importFixtureBlock()} className="mt-3 w-full">
             Programar bloque
@@ -2164,6 +2173,19 @@ function parseDateInput(dateStr?: string): string | undefined {
     return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
   }
 
+  return cleaned;
+}
+
+function isDateOnlyValue(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function normalizeMatchdayImportName(value?: string) {
+  const cleaned = (value ?? "").trim();
+  if (!cleaned) return "";
+  if (/^\d+$/.test(cleaned)) return `Fecha ${cleaned}`;
+  const fechaMatch = cleaned.match(/^fecha\s*(\d+)$/i);
+  if (fechaMatch) return `Fecha ${fechaMatch[1]}`;
   return cleaned;
 }
 

@@ -180,7 +180,7 @@ export class CreatePlayerDto {
 
   @IsOptional()
   @IsString()
-  birthDate?: string;
+  birthDate?: string | null;
 
   @IsOptional()
   @IsString()
@@ -217,7 +217,7 @@ export class UpdatePlayerDto {
 
   @IsOptional()
   @IsString()
-  birthDate?: string;
+  birthDate?: string | null;
 
   @IsOptional()
   @IsString()

@@ -23,7 +23,7 @@ export type Tournament = {
 
 export type Team = { id: string; tournamentId: string; clubId?: string; name: string; badge: string; badgeUrl?: string; colors?: string; photoUrl?: string; category?: string };
 
-export type Player = { id: string; name: string; lastName?: string; teamId: string; clubId?: string; teamIds?: string[]; number?: number; position?: string; birthDate?: string; photoUrl?: string };
+export type Player = { id: string; name: string; lastName?: string; teamId: string; clubId?: string; teamIds?: string[]; number?: number; position?: string; birthDate?: string | null; photoUrl?: string };
 
 export type Matchday = { id: string; tournamentId: string; name: string };
 
@@ -92,7 +92,7 @@ type AdminState = {
   addPlayer: (data: Pick<Player, "name" | "teamId"> & Partial<Pick<Player, "lastName" | "number" | "position" | "birthDate" | "photoUrl">>) => AsyncMutation;
   updatePlayer: (playerId: string, data: Partial<Player>) => AsyncMutation;
   deletePlayer: (playerId: string) => AsyncMutation;
-  addMatchday: (data: Pick<Matchday, "tournamentId" | "name">) => AsyncMutation;
+  addMatchday: (data: Pick<Matchday, "tournamentId" | "name">) => Promise<Matchday>;
   deleteMatchday: (matchdayId: string) => AsyncMutation;
   addMatch: (data: Pick<Match, "tournamentId" | "matchdayId" | "date" | "time" | "homeTeamId" | "awayTeamId"> & { court?: string; day?: string }) => AsyncMutation;
   updateMatch: (matchId: string, data: Partial<Pick<Match, "tournamentId" | "matchdayId" | "date" | "day" | "time" | "court" | "homeTeamId" | "awayTeamId" | "status">>) => AsyncMutation;
@@ -163,7 +163,7 @@ function argentinaDateTime(date: string, time: string) {
   return `${date}T${time}:00-03:00`;
 }
 
-function dateOnly(value?: string) {
+function dateOnly(value?: string | null) {
   if (!value) return undefined;
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
   return match ? `${match[1]}-${match[2]}-${match[3]}` : value;
@@ -543,6 +543,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         assertUniqueMatchday(tournamentId, name);
         const created = await apiRequest<Matchday>("/matchdays", { method: "POST", body: JSON.stringify({ tournamentId, name }) });
         setMatchdays((c) => [...c, created]);
+        return created;
       },
 
       deleteMatchday: async (matchdayId) => {
