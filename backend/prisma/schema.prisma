@@ -1,0 +1,184 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TournamentStatus {
+  scheduled
+  live
+  finished
+}
+
+enum TournamentType {
+  league
+  cup
+  groups_playoffs
+  knockout
+}
+
+enum MatchStatus {
+  scheduled
+  live
+  suspended
+  finished
+}
+
+enum MatchPublicationStatus {
+  draft
+  published
+}
+
+enum EventType {
+  goal
+  assist
+  yellow
+  red
+  mvp
+}
+
+enum MediaType {
+  team_badge
+  player_photo
+  team_photo
+  tournament_logo
+}
+
+model AdminUser {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Tournament {
+  id        String           @id @default(uuid())
+  name      String
+  logoUrl   String?
+  category  String
+  season    String
+  startDate DateTime?
+  endDate   DateTime?
+  rules     String?
+  status    TournamentStatus @default(scheduled)
+  type      TournamentType   @default(league)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  teams     Team[]
+  matchdays Matchday[]
+  matches   Match[]
+}
+
+model Team {
+  id           String     @id @default(uuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  name         String
+  badgeUrl     String?
+  colors       String?
+  photoUrl     String?
+  category     String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  players      Player[]
+  homeMatches  Match[]    @relation("HomeTeam")
+  awayMatches  Match[]    @relation("AwayTeam")
+  events       MatchEvent[]
+  lineups      LineupPlayer[]
+}
+
+model Player {
+  id          String   @id @default(uuid())
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  firstName   String
+  lastName    String
+  birthDate   DateTime?
+  number      Int?
+  position    String?
+  photoUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  events      MatchEvent[]
+  lineups     LineupPlayer[]
+  mvpMatches  Match[]  @relation("MatchMvp")
+}
+
+model Matchday {
+  id           String     @id @default(uuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  name         String
+  sortOrder    Int        @default(0)
+  matches      Match[]
+}
+
+model Match {
+  id           String      @id @default(uuid())
+  tournamentId String
+  tournament   Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  matchdayId   String?
+  matchday     Matchday?   @relation(fields: [matchdayId], references: [id])
+  homeTeamId   String
+  homeTeam     Team        @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId   String
+  awayTeam     Team        @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  startsAt     DateTime
+  court        String?
+  status       MatchStatus @default(scheduled)
+  publicationStatus MatchPublicationStatus @default(draft)
+  homeScore    Int?
+  awayScore    Int?
+  mvpPlayerId  String?
+  mvpPlayer    Player?     @relation("MatchMvp", fields: [mvpPlayerId], references: [id])
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  events       MatchEvent[]
+  lineup       LineupPlayer[]
+
+  @@index([startsAt])
+  @@index([tournamentId])
+}
+
+model MatchEvent {
+  id        String    @id @default(uuid())
+  matchId   String
+  match     Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  playId    String?
+  teamId    String
+  team      Team      @relation(fields: [teamId], references: [id])
+  playerId  String?
+  player    Player?   @relation(fields: [playerId], references: [id])
+  type      EventType
+  minute    Int
+  detail    String?
+  createdAt DateTime  @default(now())
+}
+
+model LineupPlayer {
+  id        String  @id @default(uuid())
+  matchId   String
+  match     Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  teamId    String
+  team      Team    @relation(fields: [teamId], references: [id])
+  playerId  String
+  player    Player  @relation(fields: [playerId], references: [id])
+  isStarter Boolean @default(true)
+
+  @@unique([matchId, playerId])
+}
+
+model MediaAsset {
+  id        String    @id @default(uuid())
+  type      MediaType
+  url       String
+  width     Int?
+  height    Int?
+  alt       String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}

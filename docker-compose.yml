@@ -1,0 +1,70 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: baires_torneos
+      POSTGRES_USER: baires
+      POSTGRES_PASSWORD: baires
+      TZ: America/Argentina/Buenos_Aires
+      PGTZ: America/Argentina/Buenos_Aires
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U baires -d baires_torneos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: node:22-alpine
+    working_dir: /workspace/backend
+    command: sh -c "apk add --no-cache openssl libc6-compat >/dev/null && npm install && npm run prisma:generate && npm run db:push && npm run build && npm run start:prod"
+    environment:
+      PORT: 4000
+      DATABASE_URL: postgresql://baires:baires@postgres:5432/baires_torneos
+      TZ: America/Argentina/Buenos_Aires
+      JWT_SECRET: local-dev-only-secret-change-before-production
+      FRONTEND_URL: http://localhost:3000
+      ADMIN_URL: http://localhost:3001
+      API_PUBLIC_URL: http://localhost:4000
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./:/workspace
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    image: node:22-alpine
+    working_dir: /workspace/apps/web
+    command: sh -c "npm install && npm run dev"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      TZ: America/Argentina/Buenos_Aires
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/workspace
+    depends_on:
+      - backend
+
+  admin:
+    image: node:22-alpine
+    working_dir: /workspace/apps/admin
+    command: sh -c "npm install && npm run dev -- -p 3001"
+    environment:
+      BACKEND_API_URL: http://backend:4000/api
+      TZ: America/Argentina/Buenos_Aires
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./:/workspace
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

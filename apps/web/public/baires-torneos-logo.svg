@@ -1,0 +1,23 @@
+<svg width="320" height="180" viewBox="0 0 320 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grass" x1="160" y1="118" x2="160" y2="154" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0EA84A"/>
+      <stop offset="1" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="180" rx="22" fill="none"/>
+  <g transform="translate(84 10)">
+    <circle cx="76" cy="58" r="42" fill="#0E9F6E"/>
+    <circle cx="76" cy="58" r="31" fill="white"/>
+    <path d="M76 34L87 41L83 54H69L65 41L76 34Z" fill="#0E9F6E"/>
+    <path d="M98 51L91 61L80 58L83 46L95 45L98 51Z" fill="#0E9F6E"/>
+    <path d="M90 77L76 82L68 70L77 60L89 63L90 77Z" fill="#0E9F6E"/>
+    <path d="M58 77L68 70L76 82L63 88L58 77Z" fill="#0E9F6E"/>
+    <path d="M53 45L65 41L69 54L59 58L49 51L53 45Z" fill="#0E9F6E"/>
+    <rect x="41" y="100" width="70" height="12" rx="6" fill="url(#grass)"/>
+    <path d="M29 111C48 98 110 98 129 111C118 119 38 119 29 111Z" fill="#16A34A"/>
+    <path d="M39 111C43 102 47 100 50 111M49 111C53 100 57 99 60 111M59 111C64 101 67 99 70 111M69 111C74 100 77 99 80 111M79 111C84 101 87 99 90 111M89 111C94 101 97 99 100 111M99 111C103 101 107 100 110 111" stroke="#16A34A" stroke-width="2" stroke-linecap="round"/>
+    <text x="76" y="143" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="900" fill="#ffffff">BAIRES</text>
+    <text x="76" y="165" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="900" letter-spacing="2" fill="#ffffff">TORNEOS</text>
+  </g>
+</svg>
