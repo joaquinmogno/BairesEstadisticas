@@ -275,32 +275,32 @@ export function StandingTable({ rows, highlightTeamIds = [], showZones = true }:
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[940px] table-fixed text-xs sm:text-[13px]">
+    <div className="overflow-x-auto bg-[#05090d] [scrollbar-color:#64748b_#05090d] [scrollbar-width:thin]">
+      <table className="w-full min-w-[620px] table-fixed text-[11px] sm:min-w-[760px] sm:text-[13px]">
         <colgroup>
-          <col className="w-[44px]" />
-          <col className="w-[280px]" />
-          <col className="w-[68px]" />
-          <col className="w-[52px]" />
-          <col className="w-[52px]" />
-          <col className="w-[64px]" />
-          <col className="w-[80px]" />
-          <col className="w-[52px]" />
-          <col className="w-[52px]" />
-          <col className="w-[250px]" />
+          <col className="w-[30px] sm:w-[42px]" />
+          <col className="w-[200px] sm:w-[240px]" />
+          <col className="w-[42px] sm:w-[56px]" />
+          <col className="w-[36px] sm:w-[44px]" />
+          <col className="w-[36px] sm:w-[44px]" />
+          <col className="w-[42px] sm:w-[52px]" />
+          <col className="w-[58px] sm:w-[70px]" />
+          <col className="w-[36px] sm:w-[44px]" />
+          <col className="w-[36px] sm:w-[44px]" />
+          <col className="w-[144px] sm:w-[180px]" />
         </colgroup>
-        <thead className="border-b border-white/8 bg-[#111922] text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
-          <tr className="h-11">
-            <th className="sticky left-0 z-30 bg-[#111922] px-3 text-left shadow-[8px_0_0_0_#111922]">#</th>
-            <th className="sticky left-[44px] z-30 bg-[#111922] px-3 text-left shadow-[8px_0_0_0_#111922]">Equipo</th>
-            <th className="px-3 text-center">PTS</th>
-            <th className="px-3 text-center">J</th>
-            <th className="px-3 text-center">G</th>
-            <th className="px-3 text-center">+/-</th>
-            <th className="px-3 text-center">GF:GC</th>
-            <th className="px-3 text-center">E</th>
-            <th className="px-3 text-center">P</th>
-            <th className="px-3 text-left">ULTIMAS</th>
+        <thead className="border-b border-black bg-[#111b20] text-[10px] font-black text-slate-400 sm:uppercase sm:tracking-[0.12em]">
+          <tr className="h-9 sm:h-10">
+            <th className="sticky left-0 z-30 bg-[#111b20] px-2 text-left shadow-[6px_0_0_0_#111b20]"></th>
+            <th className="sticky left-[30px] z-30 bg-[#111b20] px-2 text-left shadow-[6px_0_0_0_#111b20] sm:left-[42px]">Equipo</th>
+            <th className="px-1 text-center">PTS</th>
+            <th className="px-1 text-center">J</th>
+            <th className="px-1 text-center">G</th>
+            <th className="px-1 text-center">+/-</th>
+            <th className="px-1 text-center">Gol</th>
+            <th className="px-1 text-center">E</th>
+            <th className="px-1 text-center">P</th>
+            <th className="px-1 text-center">Ultimas</th>
           </tr>
         </thead>
         <tbody className="bg-[#0b1116]">
@@ -326,21 +326,21 @@ export function StandingTable({ rows, highlightTeamIds = [], showZones = true }:
                   active && "ring-1 ring-inset ring-emerald-400/60",
                 )}
               >
-                <td className="sticky left-0 z-20 bg-[#0b1116] px-3 py-3 text-slate-300 shadow-[8px_0_0_0_#0b1116]">{row.position}</td>
-                <td className="sticky left-[44px] z-20 bg-[#0b1116] px-3 py-3 shadow-[8px_0_0_0_#0b1116]">
-                  <Link href={`/equipos/${row.teamId}`} className="flex min-w-0 items-center gap-3" onClick={(event) => event.stopPropagation()}>
+                <td className="sticky left-0 z-20 bg-[#0b1116] px-2 py-2.5 text-center font-black tabular-nums text-slate-200 shadow-[6px_0_0_0_#0b1116] sm:py-3">{row.position}</td>
+                <td className="sticky left-[30px] z-20 bg-[#0b1116] px-2 py-2.5 shadow-[6px_0_0_0_#0b1116] sm:left-[42px] sm:py-3">
+                  <Link href={`/equipos/${row.teamId}`} className="flex min-w-0 items-center gap-2" onClick={(event) => event.stopPropagation()}>
                     <TeamBadge team={team} size="sm" />
-                    <span className="min-w-0 truncate text-sm font-black sm:text-[15px]">{team?.name}</span>
+                    <span className="min-w-0 truncate text-[12px] font-bold sm:text-[14px] sm:font-black">{team?.name}</span>
                   </Link>
                 </td>
-                <td className="px-3 py-3 text-center text-[18px] font-black tabular-nums text-white">{row.pts}</td>
-                <td className="px-3 py-3 text-center tabular-nums text-slate-200">{row.pj}</td>
-                <td className="px-3 py-3 text-center tabular-nums text-slate-200">{row.pg}</td>
-                <td className="px-3 py-3 text-center tabular-nums text-slate-200">{goalDifference(row)}</td>
-                <td className="px-3 py-3 text-center tabular-nums text-slate-200">{row.gf}:{row.gc}</td>
-                <td className="px-3 py-3 text-center tabular-nums text-slate-200">{row.pe}</td>
-                <td className="px-3 py-3 text-center tabular-nums text-slate-200">{row.pp}</td>
-                <td className="px-3 py-3">
+                <td className="px-1 py-2.5 text-center text-[12px] font-black tabular-nums text-white sm:py-3 sm:text-[15px]">{row.pts}</td>
+                <td className="px-1 py-2.5 text-center tabular-nums text-slate-200 sm:py-3">{row.pj}</td>
+                <td className="px-1 py-2.5 text-center tabular-nums text-slate-200 sm:py-3">{row.pg}</td>
+                <td className="px-1 py-2.5 text-center tabular-nums text-slate-200 sm:py-3">{goalDifference(row)}</td>
+                <td className="px-1 py-2.5 text-center tabular-nums text-slate-200 sm:py-3">{row.gf}:{row.gc}</td>
+                <td className="px-1 py-2.5 text-center tabular-nums text-slate-200 sm:py-3">{row.pe}</td>
+                <td className="px-1 py-2.5 text-center tabular-nums text-slate-200 sm:py-3">{row.pp}</td>
+                <td className="px-1 py-2.5 sm:py-3">
                   <FormTrail form={row.form} />
                 </td>
               </tr>
@@ -832,12 +832,12 @@ export function MatchHeader({ match, tournament }: { match: Match; tournament?: 
 function FormTrail({ form }: { form: Array<"V" | "E" | "D"> }) {
   const visible = form.slice(-5);
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center justify-center gap-1 sm:gap-1.5">
       {visible.length ? visible.map((item, index) => (
         <span
           key={`${item}-${index}`}
           className={clsx(
-            "inline-flex h-7 min-w-7 items-center justify-center rounded-full border px-2 text-[11px] font-black uppercase tracking-[0.08em]",
+            "inline-flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-black uppercase sm:h-7 sm:w-7 sm:text-[11px]",
             item === "V" && "border-emerald-400/20 bg-emerald-500/15 text-emerald-300",
             item === "E" && "border-amber-400/20 bg-amber-500/15 text-amber-200",
             item === "D" && "border-rose-400/20 bg-rose-500/15 text-rose-300",
