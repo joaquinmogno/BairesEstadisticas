@@ -47,12 +47,36 @@ enum MediaType {
   tournament_logo
 }
 
+enum AdminRole {
+  superuser
+  organizer
+}
+
+enum PermissionModule {
+  tournaments
+  teams
+  players
+  matchdays
+  matches
+  media
+  users
+}
+
 model AdminUser {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                 String            @id @default(uuid())
+  email              String            @unique
+  name               String?
+  passwordHash       String
+  role               AdminRole         @default(organizer)
+  isActive           Boolean           @default(true)
+  mustChangePassword Boolean           @default(false)
+  lastLoginAt        DateTime?
+  createdById        String?
+  createdBy          AdminUser?        @relation("AdminUserCreatedBy", fields: [createdById], references: [id])
+  createdUsers       AdminUser[]       @relation("AdminUserCreatedBy")
+  permissions        AdminPermission[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 }
 
 model Tournament {
@@ -71,6 +95,7 @@ model Tournament {
   teams     Team[]
   matchdays Matchday[]
   matches   Match[]
+  permissions AdminPermission[]
 }
 
 model Club {
@@ -84,6 +109,38 @@ model Club {
   updatedAt DateTime @updatedAt
   teams     Team[]
   players   Player[]
+}
+
+model Venue {
+  id          String            @id @default(uuid())
+  name        String
+  address     String?
+  city        String?
+  notes       String?
+  isActive    Boolean           @default(true)
+  permissions AdminPermission[]
+  matches     Match[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model AdminPermission {
+  id           String           @id @default(uuid())
+  userId       String
+  user         AdminUser        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module       PermissionModule
+  tournamentId String?
+  tournament   Tournament?     @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  venueId      String?
+  venue        Venue?          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  canRead      Boolean          @default(true)
+  canWrite     Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([tournamentId])
+  @@index([venueId])
 }
 
 model Team {
@@ -162,6 +219,8 @@ model Match {
   homeTeam     Team        @relation("HomeTeam", fields: [homeTeamId], references: [id])
   awayTeamId   String
   awayTeam     Team        @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  venueId      String?
+  venue        Venue?      @relation(fields: [venueId], references: [id])
   startsAt     DateTime
   court        String?
   status       MatchStatus @default(scheduled)

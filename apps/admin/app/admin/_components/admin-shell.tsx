@@ -12,6 +12,7 @@ import {
   Menu,
   Search,
   Trophy,
+  UserCog,
   UsersRound,
   X,
 } from "lucide-react";
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/admin", label: "Inicio", icon: LayoutDashboard },
   { href: "/admin/torneos", label: "Torneos", icon: Trophy },
   { href: "/admin/partidos", label: "Partidos", icon: ListChecks },
+  { href: "/admin/usuarios", label: "Usuarios", icon: UserCog },
 ];
 
 export function AdminShell({
@@ -142,6 +144,9 @@ export function AdminShell({
                 <Search size={16} />
               </button>
               {action}
+              <button type="button" onClick={logout} className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 sm:hidden" aria-label="Cerrar sesion" title="Cerrar sesion">
+                <LogOut size={16} />
+              </button>
               <button type="button" onClick={logout} className="hidden h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm font-black text-slate-600 sm:flex">
                 <LogOut size={16} />
                 Salir
@@ -222,7 +227,7 @@ function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
       <div className="mt-auto rounded-lg border border-emerald-100 bg-emerald-50 p-3">
         <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-700">Modo actual</p>
-        <p className="mt-1 text-sm font-bold text-emerald-950">Administrador unico con acceso total y centro operativo por torneo.</p>
+        <p className="mt-1 text-sm font-bold text-emerald-950">Roles internos, sedes y permisos por torneo para operar competencias grandes.</p>
       </div>
     </div>
   );

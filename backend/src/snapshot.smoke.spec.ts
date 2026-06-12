@@ -4,13 +4,16 @@ import { AppController } from "./app.controller";
 describe("Snapshot smoke flow", () => {
   it("interpreta los horarios de partidos sin zona como America/Argentina/Buenos_Aires", async () => {
     const prisma = {
+      adminUser: {
+        findUnique: jest.fn().mockResolvedValue({ id: "admin-1", role: "superuser", isActive: true, permissions: [] }),
+      },
       match: {
         create: jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: "match-1", ...data })),
       },
     };
     const controller = new AppController(prisma as never, {} as never, {} as never);
 
-    await controller.createMatch({
+    await controller.createMatch({ user: { userId: "admin-1", email: "admin@bairestorneos.com", role: "superuser" } }, {
       tournamentId: "t-1",
       matchdayId: "md-1",
       homeTeamId: "team-1",

@@ -15,7 +15,7 @@ import {
   MinLength,
   ValidateNested,
 } from "class-validator";
-import { EventType, MatchPublicationStatus, MatchStatus, MediaType, TournamentStatus, TournamentType } from "@prisma/client";
+import { AdminRole, EventType, MatchPublicationStatus, MatchStatus, MediaType, PermissionModule, TournamentStatus, TournamentType } from "@prisma/client";
 
 export class LoginDto {
   @IsEmail()
@@ -24,6 +24,132 @@ export class LoginDto {
   @IsString()
   @MinLength(1)
   password!: string;
+}
+
+export class AdminPermissionDto {
+  @IsEnum(PermissionModule)
+  module!: PermissionModule;
+
+  @IsOptional()
+  @IsString()
+  tournamentId?: string;
+
+  @IsOptional()
+  @IsString()
+  venueId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  canRead?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  canWrite?: boolean;
+}
+
+export class CreateAdminUserDto {
+  @IsEmail()
+  email!: string;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsString()
+  @MinLength(8)
+  password!: string;
+
+  @IsOptional()
+  @IsEnum(AdminRole)
+  role?: AdminRole;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  mustChangePassword?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AdminPermissionDto)
+  permissions?: AdminPermissionDto[];
+}
+
+export class UpdateAdminUserDto {
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(8)
+  password?: string;
+
+  @IsOptional()
+  @IsEnum(AdminRole)
+  role?: AdminRole;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  mustChangePassword?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AdminPermissionDto)
+  permissions?: AdminPermissionDto[];
+}
+
+export class CreateVenueDto {
+  @IsString()
+  @MinLength(2)
+  name!: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class UpdateVenueDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }
 
 export class CreateTournamentDto {
@@ -248,6 +374,10 @@ export class CreateMatchDto {
   @IsString()
   matchdayId?: string;
 
+  @IsOptional()
+  @IsString()
+  venueId?: string;
+
   @IsString()
   @IsNotEmpty()
   homeTeamId!: string;
@@ -272,6 +402,10 @@ export class UpdateMatchDto {
   @IsOptional()
   @IsString()
   matchdayId?: string;
+
+  @IsOptional()
+  @IsString()
+  venueId?: string;
 
   @IsOptional()
   @IsString()

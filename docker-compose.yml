@@ -19,7 +19,7 @@ services:
   backend:
     image: node:22-alpine
     working_dir: /workspace/backend
-    command: sh -c "apk add --no-cache openssl libc6-compat >/dev/null && npm install && npm run prisma:generate && npm run db:push && npm run build && npm run start:prod"
+    command: sh -c "apk add --no-cache openssl libc6-compat >/dev/null && npm install && npm run prisma:generate && npm run migrate:deploy && npm run build && npm run start:prod"
     environment:
       PORT: 4000
       DATABASE_URL: postgresql://baires:baires@postgres:5432/baires_torneos

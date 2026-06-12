@@ -276,34 +276,34 @@ export function StandingTable({ rows, highlightTeamIds = [], showZones = true }:
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[700px] table-fixed text-xs sm:min-w-[760px] sm:text-sm">
+      <table className="w-full min-w-[940px] table-fixed text-xs sm:text-[13px]">
         <colgroup>
           <col className="w-[44px]" />
-          <col className="w-[220px]" />
+          <col className="w-[280px]" />
+          <col className="w-[68px]" />
+          <col className="w-[52px]" />
+          <col className="w-[52px]" />
           <col className="w-[64px]" />
-          <col className="w-[64px]" />
-          <col className="w-[64px]" />
-          <col className="w-[72px]" />
-          <col className="w-[48px]" />
-          <col className="w-[48px]" />
-          <col className="w-[48px]" />
-          <col className="w-[64px]" />
+          <col className="w-[80px]" />
+          <col className="w-[52px]" />
+          <col className="w-[52px]" />
+          <col className="w-[250px]" />
         </colgroup>
-        <thead className="border-y border-slate-100 text-[10px] font-black uppercase tracking-[0.06em] text-slate-400 dark:border-white/10 sm:text-[11px]">
-          <tr>
-            <th className="sticky left-0 z-20 bg-white px-2 py-2 text-left dark:bg-[#111820] sm:px-3">#</th>
-            <th className="sticky left-[44px] z-20 bg-white px-1.5 py-2 text-left dark:bg-[#111820] sm:px-2">Equipo</th>
-            <th className="sticky left-[264px] z-20 bg-white px-2 py-2 text-center dark:bg-[#111820] sm:px-3">PTS</th>
-            <th className="sticky left-[328px] z-20 bg-white px-1.5 py-2 text-center dark:bg-[#111820] sm:px-2">PJ</th>
-            <th className="px-1.5 py-2 text-center sm:px-2">+/-</th>
-            <th className="hidden px-1.5 py-2 text-center sm:table-cell sm:px-2">GOL</th>
-            <th className="hidden px-1.5 py-2 text-center sm:table-cell sm:px-2">G</th>
-            <th className="hidden px-1.5 py-2 text-center sm:table-cell sm:px-2">E</th>
-            <th className="hidden px-1.5 py-2 text-center sm:table-cell sm:px-2">P</th>
-            <th className="hidden px-1.5 py-2 text-center sm:table-cell sm:px-2">Ult.</th>
+        <thead className="border-b border-white/8 bg-[#111922] text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+          <tr className="h-11">
+            <th className="sticky left-0 z-30 bg-[#111922] px-3 text-left shadow-[8px_0_0_0_#111922]">#</th>
+            <th className="sticky left-[44px] z-30 bg-[#111922] px-3 text-left shadow-[8px_0_0_0_#111922]">Equipo</th>
+            <th className="px-3 text-center">PTS</th>
+            <th className="px-3 text-center">J</th>
+            <th className="px-3 text-center">G</th>
+            <th className="px-3 text-center">+/-</th>
+            <th className="px-3 text-center">GF:GC</th>
+            <th className="px-3 text-center">E</th>
+            <th className="px-3 text-center">P</th>
+            <th className="px-3 text-left">ULTIMAS</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="bg-[#0b1116]">
           {rows.map((row) => {
             const team = getTeam(row.teamId);
             const active = highlightTeamIds.includes(row.teamId);
@@ -320,23 +320,29 @@ export function StandingTable({ rows, highlightTeamIds = [], showZones = true }:
                     router.push(`/equipos/${row.teamId}`);
                   }
                 }}
-                className={clsx("cursor-pointer border-b font-bold transition hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5", showZones && zone.rowTone, active && "ring-1 ring-inset ring-emerald-400/60")}
+                className={clsx(
+                  "cursor-pointer border-b border-white/5 font-bold text-white transition hover:bg-white/5",
+                  showZones && zone.rowTone,
+                  active && "ring-1 ring-inset ring-emerald-400/60",
+                )}
               >
-                <td className="sticky left-0 z-10 bg-inherit px-2 py-2 font-black sm:px-3">{row.position}</td>
-                <td className="sticky left-[44px] z-10 bg-inherit px-1.5 py-2 sm:px-2">
-                  <Link href={`/equipos/${row.teamId}`} className="flex items-center gap-1.5 sm:gap-2" onClick={(event) => event.stopPropagation()}>
+                <td className="sticky left-0 z-20 bg-[#0b1116] px-3 py-3 text-slate-300 shadow-[8px_0_0_0_#0b1116]">{row.position}</td>
+                <td className="sticky left-[44px] z-20 bg-[#0b1116] px-3 py-3 shadow-[8px_0_0_0_#0b1116]">
+                  <Link href={`/equipos/${row.teamId}`} className="flex min-w-0 items-center gap-3" onClick={(event) => event.stopPropagation()}>
                     <TeamBadge team={team} size="sm" />
-                    <span className="max-w-[150px] truncate sm:max-w-none sm:whitespace-nowrap">{team?.name}</span>
+                    <span className="min-w-0 truncate text-sm font-black sm:text-[15px]">{team?.name}</span>
                   </Link>
                 </td>
-                <td className="sticky left-[264px] z-10 bg-inherit px-2 py-2 text-center text-base font-black tabular-nums sm:px-3 sm:text-lg">{row.pts}</td>
-                <Cell stickyLeft="left-[328px]">{row.pj}</Cell>
-                <Cell>{goalDifference(row)}</Cell>
-                <SecondaryCell>{row.gf}:{row.gc}</SecondaryCell>
-                <SecondaryCell>{row.pg}</SecondaryCell>
-                <SecondaryCell>{row.pe}</SecondaryCell>
-                <SecondaryCell>{row.pp}</SecondaryCell>
-                <td className="hidden px-1.5 py-2 sm:table-cell sm:px-2"><FormDots form={row.form} /></td>
+                <td className="px-3 py-3 text-center text-[18px] font-black tabular-nums text-white">{row.pts}</td>
+                <td className="px-3 py-3 text-center tabular-nums text-slate-200">{row.pj}</td>
+                <td className="px-3 py-3 text-center tabular-nums text-slate-200">{row.pg}</td>
+                <td className="px-3 py-3 text-center tabular-nums text-slate-200">{goalDifference(row)}</td>
+                <td className="px-3 py-3 text-center tabular-nums text-slate-200">{row.gf}:{row.gc}</td>
+                <td className="px-3 py-3 text-center tabular-nums text-slate-200">{row.pe}</td>
+                <td className="px-3 py-3 text-center tabular-nums text-slate-200">{row.pp}</td>
+                <td className="px-3 py-3">
+                  <FormTrail form={row.form} />
+                </td>
               </tr>
             );
           })}
@@ -344,14 +350,6 @@ export function StandingTable({ rows, highlightTeamIds = [], showZones = true }:
       </table>
     </div>
   );
-}
-
-function Cell({ children, stickyLeft }: { children: ReactNode; stickyLeft?: string }) {
-  return <td className={clsx("px-1.5 py-2 text-center tabular-nums sm:px-2", stickyLeft ? `sticky z-10 bg-inherit ${stickyLeft}` : "")}>{children}</td>;
-}
-
-function SecondaryCell({ children }: { children: ReactNode }) {
-  return <td className="hidden px-1.5 py-2 text-center tabular-nums sm:table-cell sm:px-2">{children}</td>;
 }
 
 export function Tabs<T extends string>({ tabs, active, onChange }: { tabs: { id: T; label: string }[]; active: T; onChange: (id: T) => void }) {
@@ -696,29 +694,29 @@ type StandingZoneDescriptor = {
 function standingZones(rowCount: number): StandingZoneDescriptor[] {
   if (rowCount >= 12) {
     return [
-      { label: "Zona de clasificacion", from: 1, to: 4, rowTone: "bg-emerald-50/70 dark:bg-emerald-500/10", cardTone: "border-emerald-200 bg-emerald-50/80 dark:border-emerald-400/20 dark:bg-emerald-500/10", badgeTone: "bg-emerald-600 text-white" },
-      { label: "Zona de repechaje", from: 5, to: 6, rowTone: "bg-sky-50/70 dark:bg-sky-500/10", cardTone: "border-sky-200 bg-sky-50/80 dark:border-sky-400/20 dark:bg-sky-500/10", badgeTone: "bg-sky-600 text-white" },
-      { label: "Zona de descenso", from: rowCount - 1, to: rowCount, rowTone: "bg-rose-50/70 dark:bg-rose-500/10", cardTone: "border-rose-200 bg-rose-50/80 dark:border-rose-400/20 dark:bg-rose-500/10", badgeTone: "bg-rose-600 text-white" },
+      { label: "Zona de clasificacion", from: 1, to: 4, rowTone: "bg-emerald-400/8", cardTone: "border-emerald-200 bg-emerald-50/80 dark:border-emerald-400/20 dark:bg-emerald-500/10", badgeTone: "bg-emerald-600 text-white" },
+      { label: "Zona de repechaje", from: 5, to: 6, rowTone: "bg-sky-400/8", cardTone: "border-sky-200 bg-sky-50/80 dark:border-sky-400/20 dark:bg-sky-500/10", badgeTone: "bg-sky-600 text-white" },
+      { label: "Zona de descenso", from: rowCount - 1, to: rowCount, rowTone: "bg-rose-400/8", cardTone: "border-rose-200 bg-rose-50/80 dark:border-rose-400/20 dark:bg-rose-500/10", badgeTone: "bg-rose-600 text-white" },
     ];
   }
 
   if (rowCount >= 8) {
     return [
-      { label: "Zona de clasificacion", from: 1, to: 2, rowTone: "bg-emerald-50/70 dark:bg-emerald-500/10", cardTone: "border-emerald-200 bg-emerald-50/80 dark:border-emerald-400/20 dark:bg-emerald-500/10", badgeTone: "bg-emerald-600 text-white" },
-      { label: "Zona de repechaje", from: 3, to: 4, rowTone: "bg-sky-50/70 dark:bg-sky-500/10", cardTone: "border-sky-200 bg-sky-50/80 dark:border-sky-400/20 dark:bg-sky-500/10", badgeTone: "bg-sky-600 text-white" },
-      { label: "Zona de descenso", from: rowCount, to: rowCount, rowTone: "bg-rose-50/70 dark:bg-rose-500/10", cardTone: "border-rose-200 bg-rose-50/80 dark:border-rose-400/20 dark:bg-rose-500/10", badgeTone: "bg-rose-600 text-white" },
+      { label: "Zona de clasificacion", from: 1, to: 2, rowTone: "bg-emerald-400/8", cardTone: "border-emerald-200 bg-emerald-50/80 dark:border-emerald-400/20 dark:bg-emerald-500/10", badgeTone: "bg-emerald-600 text-white" },
+      { label: "Zona de repechaje", from: 3, to: 4, rowTone: "bg-sky-400/8", cardTone: "border-sky-200 bg-sky-50/80 dark:border-sky-400/20 dark:bg-sky-500/10", badgeTone: "bg-sky-600 text-white" },
+      { label: "Zona de descenso", from: rowCount, to: rowCount, rowTone: "bg-rose-400/8", cardTone: "border-rose-200 bg-rose-50/80 dark:border-rose-400/20 dark:bg-rose-500/10", badgeTone: "bg-rose-600 text-white" },
     ];
   }
 
   if (rowCount >= 5) {
     return [
-      { label: "Zona de clasificacion", from: 1, to: 2, rowTone: "bg-emerald-50/70 dark:bg-emerald-500/10", cardTone: "border-emerald-200 bg-emerald-50/80 dark:border-emerald-400/20 dark:bg-emerald-500/10", badgeTone: "bg-emerald-600 text-white" },
-      { label: "Zona baja", from: rowCount, to: rowCount, rowTone: "bg-rose-50/70 dark:bg-rose-500/10", cardTone: "border-rose-200 bg-rose-50/80 dark:border-rose-400/20 dark:bg-rose-500/10", badgeTone: "bg-rose-600 text-white" },
+      { label: "Zona de clasificacion", from: 1, to: 2, rowTone: "bg-emerald-400/8", cardTone: "border-emerald-200 bg-emerald-50/80 dark:border-emerald-400/20 dark:bg-emerald-500/10", badgeTone: "bg-emerald-600 text-white" },
+      { label: "Zona baja", from: rowCount, to: rowCount, rowTone: "bg-rose-400/8", cardTone: "border-rose-200 bg-rose-50/80 dark:border-rose-400/20 dark:bg-rose-500/10", badgeTone: "bg-rose-600 text-white" },
     ];
   }
 
   return [
-    { label: "Lider", from: 1, to: 1, rowTone: "bg-emerald-50/70 dark:bg-emerald-500/10", cardTone: "border-emerald-200 bg-emerald-50/80 dark:border-emerald-400/20 dark:bg-emerald-500/10", badgeTone: "bg-emerald-600 text-white" },
+    { label: "Lider", from: 1, to: 1, rowTone: "bg-emerald-400/8", cardTone: "border-emerald-200 bg-emerald-50/80 dark:border-emerald-400/20 dark:bg-emerald-500/10", badgeTone: "bg-emerald-600 text-white" },
   ];
 }
 
@@ -828,6 +826,27 @@ export function MatchHeader({ match, tournament }: { match: Match; tournament?: 
         </div>
       </div>
     </Panel>
+  );
+}
+
+function FormTrail({ form }: { form: Array<"V" | "E" | "D"> }) {
+  const visible = form.slice(-5);
+  return (
+    <div className="flex items-center gap-1.5">
+      {visible.length ? visible.map((item, index) => (
+        <span
+          key={`${item}-${index}`}
+          className={clsx(
+            "inline-flex h-7 min-w-7 items-center justify-center rounded-full border px-2 text-[11px] font-black uppercase tracking-[0.08em]",
+            item === "V" && "border-emerald-400/20 bg-emerald-500/15 text-emerald-300",
+            item === "E" && "border-amber-400/20 bg-amber-500/15 text-amber-200",
+            item === "D" && "border-rose-400/20 bg-rose-500/15 text-rose-300",
+          )}
+        >
+          {item === "V" ? "G" : item === "D" ? "P" : "E"}
+        </span>
+      )) : <span className="text-xs font-bold text-slate-500">-</span>}
+    </div>
   );
 }
 

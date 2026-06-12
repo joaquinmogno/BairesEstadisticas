@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, UploadedFile, UseInterceptors } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Req, UploadedFile, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
@@ -6,23 +6,28 @@ import { mkdirSync } from "fs";
 import { unlink } from "fs/promises";
 import { diskStorage } from "multer";
 import { extname, join } from "path";
-import { EventType, MatchPublicationStatus, MatchStatus, MediaType, TournamentStatus, TournamentType } from "@prisma/client";
+import { AdminRole, EventType, MatchPublicationStatus, MatchStatus, MediaType, PermissionModule, TournamentStatus, TournamentType } from "@prisma/client";
 import {
+  AdminPermissionDto,
+  CreateAdminUserDto,
   CreateMatchdayDto,
   CreateMatchDto,
   CreateMediaDto,
   CreatePlayerDto,
   CreateTeamDto,
   CreateTournamentDto,
+  CreateVenueDto,
   EventDto,
   LoginDto,
   SaveLineupDto,
+  UpdateAdminUserDto,
   UpdateEventDto,
   UpdateMatchDto,
   UpdateMediaDto,
   UpdatePlayerDto,
   UpdateTeamDto,
   UpdateTournamentDto,
+  UpdateVenueDto,
 } from "./dto";
 import { PrismaService } from "./prisma.service";
 import { Public } from "./public.decorator";
@@ -37,6 +42,7 @@ const mediaFolders: Record<MediaType, string> = {
 };
 const APP_TIME_ZONE = "America/Argentina/Buenos_Aires";
 const APP_TIME_ZONE_OFFSET = "-03:00";
+type AuthRequest = { user?: { userId: string; email: string; role?: AdminRole } };
 
 @Controller()
 export class AppController {
@@ -55,16 +61,146 @@ export class AppController {
   @Public()
   @Post("auth/login")
   async login(@Body() body: LoginDto) {
-    const user = await this.prisma.adminUser.findUnique({ where: { email: body.email } });
+    const user = await this.prisma.adminUser.findUnique({
+      where: { email: body.email.trim().toLowerCase() },
+      include: { permissions: true },
+    });
     if (!user || !(await bcrypt.compare(body.password, user.passwordHash))) {
       return { ok: false, message: "Credenciales invalidas" };
     }
+    if (!user.isActive) {
+      return { ok: false, message: "Usuario desactivado" };
+    }
+
+    await this.prisma.adminUser.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
     return {
       ok: true,
-      accessToken: await this.jwt.signAsync({ sub: user.id, email: user.email }),
-      user: { id: user.id, email: user.email },
+      accessToken: await this.jwt.signAsync({ sub: user.id, email: user.email, role: user.role }),
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        mustChangePassword: user.mustChangePassword,
+        permissions: user.permissions.map(toPermissionPayload),
+      },
     };
+  }
+
+  @Get("auth/me")
+  async me(@Req() request: AuthRequest) {
+    const user = await this.requireCurrentUser(request);
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      isActive: user.isActive,
+      mustChangePassword: user.mustChangePassword,
+      permissions: user.permissions.map(toPermissionPayload),
+    };
+  }
+
+  @Get("admin-users")
+  async adminUsers(@Req() request: AuthRequest) {
+    await this.requireSuperuser(request);
+    const users = await this.prisma.adminUser.findMany({
+      include: { permissions: { include: { tournament: true, venue: true } }, createdBy: true },
+      orderBy: { createdAt: "asc" },
+    });
+    return users.map(toAdminUserPayload);
+  }
+
+  @Post("admin-users")
+  async createAdminUser(@Req() request: AuthRequest, @Body() body: CreateAdminUserDto) {
+    const current = await this.requireSuperuser(request);
+    const passwordHash = await bcrypt.hash(body.password, 10);
+    const user = await this.prisma.adminUser.create({
+      data: {
+        email: body.email.trim().toLowerCase(),
+        name: body.name?.trim() || undefined,
+        passwordHash,
+        role: body.role ?? AdminRole.organizer,
+        isActive: body.isActive ?? true,
+        mustChangePassword: body.mustChangePassword ?? true,
+        createdById: current.id,
+        permissions: { create: normalizePermissionInput(body.permissions ?? []) },
+      },
+      include: { permissions: { include: { tournament: true, venue: true } }, createdBy: true },
+    });
+    return toAdminUserPayload(user);
+  }
+
+  @Patch("admin-users/:id")
+  async updateAdminUser(@Req() request: AuthRequest, @Param("id") id: string, @Body() body: UpdateAdminUserDto) {
+    await this.requireSuperuser(request);
+    const data: Record<string, unknown> = {
+      email: body.email ? body.email.trim().toLowerCase() : undefined,
+      name: body.name !== undefined ? body.name.trim() || null : undefined,
+      role: body.role,
+      isActive: body.isActive,
+      mustChangePassword: body.mustChangePassword,
+    };
+    if (body.password) data.passwordHash = await bcrypt.hash(body.password, 10);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.adminUser.update({
+        where: { id },
+        data: Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)),
+      });
+      if (body.permissions) {
+        await tx.adminPermission.deleteMany({ where: { userId: id } });
+        if (body.permissions.length) {
+          await tx.adminPermission.createMany({
+            data: normalizePermissionInput(body.permissions).map((permission) => ({ ...permission, userId: id })),
+          });
+        }
+      }
+    });
+
+    const user = await this.prisma.adminUser.findUniqueOrThrow({
+      where: { id },
+      include: { permissions: { include: { tournament: true, venue: true } }, createdBy: true },
+    });
+    return toAdminUserPayload(user);
+  }
+
+  @Get("venues")
+  async venues(@Req() request: AuthRequest) {
+    const user = await this.requireCurrentUser(request);
+    const venues = await this.prisma.venue.findMany({ orderBy: { createdAt: "asc" } });
+    if (user.role === AdminRole.superuser) return venues;
+    const allowedVenueIds = this.allowedVenueIds(user, PermissionModule.matches, false);
+    return venues.filter((venue) => allowedVenueIds === "all" || allowedVenueIds.has(venue.id));
+  }
+
+  @Post("venues")
+  async createVenue(@Req() request: AuthRequest, @Body() body: CreateVenueDto) {
+    await this.requireSuperuser(request);
+    return this.prisma.venue.create({
+      data: {
+        name: body.name.trim(),
+        address: body.address?.trim() || undefined,
+        city: body.city?.trim() || undefined,
+        notes: body.notes?.trim() || undefined,
+      },
+    });
+  }
+
+  @Patch("venues/:id")
+  async updateVenue(@Req() request: AuthRequest, @Param("id") id: string, @Body() body: UpdateVenueDto) {
+    await this.requireSuperuser(request);
+    return this.prisma.venue.update({
+      where: { id },
+      data: {
+        name: body.name?.trim(),
+        address: body.address !== undefined ? body.address.trim() || null : undefined,
+        city: body.city !== undefined ? body.city.trim() || null : undefined,
+        notes: body.notes !== undefined ? body.notes.trim() || null : undefined,
+        isActive: body.isActive,
+      },
+    });
   }
 
   @Public()
@@ -138,6 +274,7 @@ export class AppController {
         tournamentId: match.tournamentId,
         matchdayId: match.matchdayId ?? undefined,
         matchdayName: match.matchday?.name ?? undefined,
+        venueId: match.venueId ?? undefined,
         date: toDate(match.startsAt) ?? "",
         time: timeLabel(match.startsAt),
         court: match.court ?? "",
@@ -166,12 +303,17 @@ export class AppController {
   }
 
   @Get("tournaments")
-  tournaments() {
-    return this.prisma.tournament.findMany({ include: { teams: true, matchdays: true }, orderBy: { createdAt: "asc" } });
+  async tournaments(@Req() request: AuthRequest) {
+    const user = await this.requireCurrentUser(request);
+    const tournaments = await this.prisma.tournament.findMany({ include: { teams: true, matchdays: true }, orderBy: { createdAt: "asc" } });
+    if (user.role === AdminRole.superuser) return tournaments;
+    const allowed = this.allowedTournamentIds(user, PermissionModule.tournaments, false);
+    return tournaments.filter((tournament) => allowed === "all" || allowed.has(tournament.id));
   }
 
   @Post("tournaments")
-  createTournament(@Body() body: CreateTournamentDto) {
+  async createTournament(@Req() request: AuthRequest, @Body() body: CreateTournamentDto) {
+    await this.requireModuleAccess(request, PermissionModule.tournaments, { write: true });
     return this.prisma.tournament.create({
       data: {
         name: body.name,
@@ -185,12 +327,14 @@ export class AppController {
   }
 
   @Patch("tournaments/:id")
-  updateTournament(@Param("id") id: string, @Body() body: UpdateTournamentDto) {
+  async updateTournament(@Req() request: AuthRequest, @Param("id") id: string, @Body() body: UpdateTournamentDto) {
+    await this.requireModuleAccess(request, PermissionModule.tournaments, { tournamentId: id, write: true });
     return this.prisma.tournament.update({ where: { id }, data: body });
   }
 
   @Delete("tournaments/:id")
-  async deleteTournament(@Param("id") id: string) {
+  async deleteTournament(@Req() request: AuthRequest, @Param("id") id: string) {
+    await this.requireModuleAccess(request, PermissionModule.tournaments, { tournamentId: id, write: true });
     const tournamentTeams = await this.prisma.team.findMany({ where: { tournamentId: id }, select: { id: true } });
     const teamIds = tournamentTeams.map((team) => team.id);
     const primaryPlayers = await this.prisma.player.findMany({
@@ -209,12 +353,21 @@ export class AppController {
   }
 
   @Get("teams")
-  teams() {
-    return this.prisma.team.findMany({ include: { club: true, roster: { include: { player: true } }, tournament: true }, orderBy: { createdAt: "asc" } });
+  async teams(@Req() request: AuthRequest) {
+    const user = await this.requireCurrentUser(request);
+    const teams = await this.prisma.team.findMany({ include: { club: true, roster: { include: { player: true } }, tournament: true }, orderBy: { createdAt: "asc" } });
+    if (user.role === AdminRole.superuser) return teams;
+    const allowed = this.allowedTournamentIds(user, PermissionModule.teams, false);
+    return teams.filter((team) => allowed === "all" || allowed.has(team.tournamentId));
   }
 
   @Post("teams")
-  async createTeam(@Body() body: CreateTeamDto) {
+  async createTeam(@Req() request: AuthRequest, @Body() body: CreateTeamDto) {
+    await this.requireModuleAccess(request, PermissionModule.teams, { tournamentId: body.tournamentId, write: true });
+    if (body.sourceTeamId) {
+      const sourceTeam = await this.prisma.team.findUnique({ where: { id: body.sourceTeamId }, select: { tournamentId: true } });
+      if (sourceTeam) await this.requireModuleAccess(request, PermissionModule.teams, { tournamentId: sourceTeam.tournamentId, write: true });
+    }
     const club = body.clubId
       ? await this.prisma.club.findUnique({ where: { id: body.clubId } })
       : await this.prisma.club.create({
@@ -261,7 +414,13 @@ export class AppController {
   }
 
   @Patch("teams/:id")
-  async updateTeam(@Param("id") id: string, @Body() body: UpdateTeamDto) {
+  async updateTeam(@Req() request: AuthRequest, @Param("id") id: string, @Body() body: UpdateTeamDto) {
+    const current = await this.prisma.team.findUnique({ where: { id }, select: { tournamentId: true } });
+    if (!current) throw new BadRequestException("Equipo no encontrado");
+    await this.requireModuleAccess(request, PermissionModule.teams, { tournamentId: current.tournamentId, write: true });
+    if (body.tournamentId && body.tournamentId !== current.tournamentId) {
+      await this.requireModuleAccess(request, PermissionModule.teams, { tournamentId: body.tournamentId, write: true });
+    }
     const team = await this.prisma.team.update({ where: { id }, data: body });
     const clubFields = {
       name: body.name,
@@ -280,7 +439,10 @@ export class AppController {
   }
 
   @Delete("teams/:id")
-  async deleteTeam(@Param("id") id: string) {
+  async deleteTeam(@Req() request: AuthRequest, @Param("id") id: string) {
+    const team = await this.prisma.team.findUnique({ where: { id }, select: { tournamentId: true } });
+    if (!team) throw new BadRequestException("Equipo no encontrado");
+    await this.requireModuleAccess(request, PermissionModule.teams, { tournamentId: team.tournamentId, write: true });
     const matches = await this.prisma.match.findMany({
       where: { OR: [{ homeTeamId: id }, { awayTeamId: id }] },
       select: { id: true },
@@ -303,14 +465,19 @@ export class AppController {
   }
 
   @Get("players")
-  players() {
-    return this.prisma.player.findMany({ include: { club: true, rosters: { include: { team: true } }, team: true }, orderBy: { createdAt: "asc" } });
+  async players(@Req() request: AuthRequest) {
+    const user = await this.requireCurrentUser(request);
+    const players = await this.prisma.player.findMany({ include: { club: true, rosters: { include: { team: true } }, team: true }, orderBy: { createdAt: "asc" } });
+    if (user.role === AdminRole.superuser) return players;
+    const allowed = this.allowedTournamentIds(user, PermissionModule.players, false);
+    return players.filter((player) => allowed === "all" || player.rosters.some((roster) => allowed.has(roster.team.tournamentId)) || allowed.has(player.team.tournamentId));
   }
 
   @Post("players")
-  async createPlayer(@Body() body: CreatePlayerDto) {
+  async createPlayer(@Req() request: AuthRequest, @Body() body: CreatePlayerDto) {
     const team = await this.prisma.team.findUnique({ where: { id: body.teamId } });
     if (!team) throw new BadRequestException("Equipo no encontrado");
+    await this.requireModuleAccess(request, PermissionModule.players, { tournamentId: team.tournamentId, write: true });
     const player = await this.prisma.player.create({
       data: {
         teamId: body.teamId,
@@ -335,9 +502,15 @@ export class AppController {
   }
 
   @Patch("players/:id")
-  async updatePlayer(@Param("id") id: string, @Body() body: UpdatePlayerDto) {
+  async updatePlayer(@Req() request: AuthRequest, @Param("id") id: string, @Body() body: UpdatePlayerDto) {
+    const current = await this.prisma.player.findUnique({ where: { id }, include: { team: true } });
+    if (!current) throw new BadRequestException("Jugador no encontrado");
+    await this.requireModuleAccess(request, PermissionModule.players, { tournamentId: current.team.tournamentId, write: true });
     const targetTeam = body.teamId ? await this.prisma.team.findUnique({ where: { id: body.teamId } }) : null;
     if (body.teamId && !targetTeam) throw new BadRequestException("Equipo no encontrado");
+    if (targetTeam && targetTeam.tournamentId !== current.team.tournamentId) {
+      await this.requireModuleAccess(request, PermissionModule.players, { tournamentId: targetTeam.tournamentId, write: true });
+    }
     const player = await this.prisma.player.update({
       where: { id },
       data: {
@@ -358,7 +531,10 @@ export class AppController {
   }
 
   @Delete("players/:id")
-  async deletePlayer(@Param("id") id: string) {
+  async deletePlayer(@Req() request: AuthRequest, @Param("id") id: string) {
+    const player = await this.prisma.player.findUnique({ where: { id }, include: { team: true } });
+    if (!player) throw new BadRequestException("Jugador no encontrado");
+    await this.requireModuleAccess(request, PermissionModule.players, { tournamentId: player.team.tournamentId, write: true });
     await this.prisma.match.updateMany({ where: { mvpPlayerId: id }, data: { mvpPlayerId: null } });
     await this.prisma.lineupPlayer.deleteMany({ where: { playerId: id } });
     await this.prisma.matchEvent.updateMany({ where: { playerId: id }, data: { playerId: null } });
@@ -366,27 +542,41 @@ export class AppController {
   }
 
   @Post("matchdays")
-  createMatchday(@Body() body: CreateMatchdayDto) {
+  async createMatchday(@Req() request: AuthRequest, @Body() body: CreateMatchdayDto) {
+    await this.requireModuleAccess(request, PermissionModule.matchdays, { tournamentId: body.tournamentId, write: true });
     return this.prisma.matchday.create({ data: { tournamentId: body.tournamentId, name: body.name, sortOrder: body.sortOrder ?? 0 } });
   }
 
   @Delete("matchdays/:id")
-  async deleteMatchday(@Param("id") id: string) {
+  async deleteMatchday(@Req() request: AuthRequest, @Param("id") id: string) {
+    const matchday = await this.prisma.matchday.findUnique({ where: { id }, select: { tournamentId: true } });
+    if (!matchday) throw new BadRequestException("Fecha no encontrada");
+    await this.requireModuleAccess(request, PermissionModule.matchdays, { tournamentId: matchday.tournamentId, write: true });
     await this.prisma.match.deleteMany({ where: { matchdayId: id } });
     return this.prisma.matchday.delete({ where: { id } });
   }
 
   @Get("matches")
-  matches() {
-    return this.prisma.match.findMany({ include: { homeTeam: true, awayTeam: true, events: true, lineup: true, matchday: true }, orderBy: { startsAt: "asc" } });
+  async matches(@Req() request: AuthRequest) {
+    const user = await this.requireCurrentUser(request);
+    const matches = await this.prisma.match.findMany({ include: { homeTeam: true, awayTeam: true, events: true, lineup: true, matchday: true, venue: true }, orderBy: { startsAt: "asc" } });
+    if (user.role === AdminRole.superuser) return matches;
+    const allowed = this.allowedTournamentIds(user, PermissionModule.matches, false);
+    const allowedVenues = this.allowedVenueIds(user, PermissionModule.matches, false);
+    return matches.filter((match) => (
+      (allowed === "all" || allowed.has(match.tournamentId))
+      && (allowedVenues === "all" || (match.venueId ? allowedVenues.has(match.venueId) : false))
+    ));
   }
 
   @Post("matches")
-  createMatch(@Body() body: CreateMatchDto) {
+  async createMatch(@Req() request: AuthRequest, @Body() body: CreateMatchDto) {
+    await this.requireModuleAccess(request, PermissionModule.matches, { tournamentId: body.tournamentId, venueId: body.venueId, write: true });
     return this.prisma.match.create({
       data: {
         tournamentId: body.tournamentId,
         matchdayId: body.matchdayId,
+        venueId: body.venueId,
         homeTeamId: body.homeTeamId,
         awayTeamId: body.awayTeamId,
         startsAt: parseDateTimeInAppTimeZone(body.startsAt),
@@ -396,12 +586,21 @@ export class AppController {
   }
 
   @Patch("matches/:id")
-  async updateMatch(@Param("id") id: string, @Body() body: UpdateMatchDto) {
+  async updateMatch(@Req() request: AuthRequest, @Param("id") id: string, @Body() body: UpdateMatchDto) {
+    const current = await this.prisma.match.findUnique({ where: { id }, select: { tournamentId: true, venueId: true } });
+    if (!current) throw new BadRequestException("Partido no encontrado");
+    await this.requireModuleAccess(request, PermissionModule.matches, { tournamentId: current.tournamentId, venueId: current.venueId ?? undefined, write: true });
+    const nextTournamentId = body.tournamentId ?? current.tournamentId;
+    const nextVenueId = body.venueId ?? current.venueId ?? undefined;
+    if (nextTournamentId !== current.tournamentId || nextVenueId !== (current.venueId ?? undefined)) {
+      await this.requireModuleAccess(request, PermissionModule.matches, { tournamentId: nextTournamentId, venueId: nextVenueId, write: true });
+    }
     return this.prisma.match.update({
       where: { id },
       data: {
         tournamentId: body.tournamentId,
         matchdayId: body.matchdayId,
+        venueId: body.venueId,
         homeTeamId: body.homeTeamId,
         awayTeamId: body.awayTeamId,
         startsAt: body.startsAt ? parseDateTimeInAppTimeZone(body.startsAt) : undefined,
@@ -414,12 +613,14 @@ export class AppController {
   }
 
   @Delete("matches/:id")
-  deleteMatch(@Param("id") id: string) {
+  async deleteMatch(@Req() request: AuthRequest, @Param("id") id: string) {
+    await this.requireMatchModuleAccess(request, id, PermissionModule.matches, true);
     return this.prisma.match.delete({ where: { id } });
   }
 
   @Post("matches/:id/events")
-  async addEvent(@Param("id") matchId: string, @Body() body: EventDto) {
+  async addEvent(@Req() request: AuthRequest, @Param("id") matchId: string, @Body() body: EventDto) {
+    await this.requireMatchModuleAccess(request, matchId, PermissionModule.matches, true);
     await this.assertEventAllowed(matchId, body.teamId, body.playerId);
     if (body.type === EventType.mvp) {
       await this.prisma.matchEvent.deleteMany({ where: { matchId, type: EventType.mvp } });
@@ -432,7 +633,8 @@ export class AppController {
   }
 
   @Patch("matches/:matchId/events/:eventId")
-  async updateEvent(@Param("matchId") matchId: string, @Param("eventId") eventId: string, @Body() body: UpdateEventDto) {
+  async updateEvent(@Req() request: AuthRequest, @Param("matchId") matchId: string, @Param("eventId") eventId: string, @Body() body: UpdateEventDto) {
+    await this.requireMatchModuleAccess(request, matchId, PermissionModule.matches, true);
     if (body.teamId || body.playerId) {
       const current = await this.prisma.matchEvent.findUnique({ where: { id: eventId } });
       await this.assertEventAllowed(matchId, body.teamId ?? current?.teamId ?? "", body.playerId ?? current?.playerId ?? undefined);
@@ -456,21 +658,24 @@ export class AppController {
   }
 
   @Delete("matches/:matchId/events/:eventId")
-  async deleteEvent(@Param("matchId") matchId: string, @Param("eventId") eventId: string) {
+  async deleteEvent(@Req() request: AuthRequest, @Param("matchId") matchId: string, @Param("eventId") eventId: string) {
+    await this.requireMatchModuleAccess(request, matchId, PermissionModule.matches, true);
     const deleted = await this.prisma.matchEvent.delete({ where: { id: eventId } });
     await this.recalculateMatch(matchId);
     return deleted;
   }
 
   @Delete("matches/:matchId/plays/:playId")
-  async deletePlay(@Param("matchId") matchId: string, @Param("playId") playId: string) {
+  async deletePlay(@Req() request: AuthRequest, @Param("matchId") matchId: string, @Param("playId") playId: string) {
+    await this.requireMatchModuleAccess(request, matchId, PermissionModule.matches, true);
     const deleted = await this.prisma.matchEvent.deleteMany({ where: { matchId, playId } });
     await this.recalculateMatch(matchId);
     return { deleted: deleted.count };
   }
 
   @Post("matches/:id/publish")
-  async publishMatch(@Param("id") matchId: string) {
+  async publishMatch(@Req() request: AuthRequest, @Param("id") matchId: string) {
+    await this.requireMatchModuleAccess(request, matchId, PermissionModule.matches, true);
     await this.recalculateMatch(matchId);
     return this.prisma.match.update({
       where: { id: matchId },
@@ -537,6 +742,7 @@ export class AppController {
       sortOrder: matchday.sortOrder,
       matches: matchday.matches.map((match) => ({
         id: match.id,
+        venueId: match.venueId ?? undefined,
         date: toDate(match.startsAt) ?? "",
         time: timeLabel(match.startsAt),
         court: match.court ?? "",
@@ -551,7 +757,8 @@ export class AppController {
   }
 
   @Post("matches/:id/lineup")
-  async saveLineup(@Param("id") matchId: string, @Body() body: SaveLineupDto) {
+  async saveLineup(@Req() request: AuthRequest, @Param("id") matchId: string, @Body() body: SaveLineupDto) {
+    await this.requireMatchModuleAccess(request, matchId, PermissionModule.matches, true);
     await this.prisma.lineupPlayer.deleteMany({ where: { matchId } });
     if (!body.players.length) return [];
     await Promise.all(body.players.map((player) => this.assertEventAllowed(matchId, player.teamId, player.playerId)));
@@ -559,7 +766,8 @@ export class AppController {
   }
 
   @Get("media")
-  media() {
+  async media(@Req() request: AuthRequest) {
+    await this.requireModuleAccess(request, PermissionModule.media, { write: false });
     return this.prisma.mediaAsset.findMany({ orderBy: { createdAt: "desc" } });
   }
 
@@ -591,7 +799,8 @@ export class AppController {
     },
     limits: { fileSize: 5 * 1024 * 1024 },
   }))
-  async uploadMedia(@UploadedFile() file: Express.Multer.File, @Body() body: { type?: MediaType; alt?: string }) {
+  async uploadMedia(@Req() request: AuthRequest, @UploadedFile() file: Express.Multer.File, @Body() body: { type?: MediaType; alt?: string }) {
+    await this.requireModuleAccess(request, PermissionModule.media, { write: true });
     if (!file) throw new BadRequestException("Archivo requerido");
     const type = normalizeMediaType(body.type);
     const publicUrl = `${process.env.API_PUBLIC_URL ?? "http://localhost:4000"}/uploads/${mediaFolders[type]}/${file.filename}`;
@@ -605,17 +814,20 @@ export class AppController {
   }
 
   @Post("media")
-  createMedia(@Body() body: CreateMediaDto) {
+  async createMedia(@Req() request: AuthRequest, @Body() body: CreateMediaDto) {
+    await this.requireModuleAccess(request, PermissionModule.media, { write: true });
     return this.prisma.mediaAsset.create({ data: body });
   }
 
   @Patch("media/:id")
-  updateMedia(@Param("id") id: string, @Body() body: UpdateMediaDto) {
+  async updateMedia(@Req() request: AuthRequest, @Param("id") id: string, @Body() body: UpdateMediaDto) {
+    await this.requireModuleAccess(request, PermissionModule.media, { write: true });
     return this.prisma.mediaAsset.update({ where: { id }, data: body });
   }
 
   @Delete("media/:id")
-  async deleteMedia(@Param("id") id: string) {
+  async deleteMedia(@Req() request: AuthRequest, @Param("id") id: string) {
+    await this.requireModuleAccess(request, PermissionModule.media, { write: true });
     const asset = await this.prisma.mediaAsset.delete({ where: { id } });
     const uploadPrefix = `${process.env.API_PUBLIC_URL ?? "http://localhost:4000"}/uploads/`;
     if (asset.url.startsWith(uploadPrefix)) {
@@ -670,6 +882,134 @@ export class AppController {
       throw new BadRequestException("El jugador no esta habilitado en el plantel de esta competicion");
     }
   }
+
+  private async requireCurrentUser(request: AuthRequest) {
+    const userId = request.user?.userId;
+    if (!userId) throw new ForbiddenException("Sesion invalida");
+    const user = await this.prisma.adminUser.findUnique({
+      where: { id: userId },
+      include: { permissions: true },
+    });
+    if (!user || !user.isActive) throw new ForbiddenException("Usuario sin acceso");
+    return user;
+  }
+
+  private async requireSuperuser(request: AuthRequest) {
+    const user = await this.requireCurrentUser(request);
+    if (user.role !== AdminRole.superuser) {
+      throw new ForbiddenException("Solo un superusuario puede realizar esta accion");
+    }
+    return user;
+  }
+
+  private async requireModuleAccess(
+    request: AuthRequest,
+    module: PermissionModule,
+    options: { tournamentId?: string; venueId?: string; write: boolean },
+  ) {
+    const user = await this.requireCurrentUser(request);
+    if (user.role === AdminRole.superuser) return user;
+
+    const permission = user.permissions.find((item) => {
+      if (item.module !== module) return false;
+      if (options.write && !item.canWrite) return false;
+      if (!options.write && !item.canRead) return false;
+      if (options.tournamentId && item.tournamentId && item.tournamentId !== options.tournamentId) return false;
+      if (options.venueId && item.venueId && item.venueId !== options.venueId) return false;
+      return true;
+    });
+
+    if (!permission) {
+      throw new ForbiddenException("No tenes permisos para esta operacion");
+    }
+    return user;
+  }
+
+  private async requireMatchModuleAccess(request: AuthRequest, matchId: string, module: PermissionModule, write: boolean) {
+    const match = await this.prisma.match.findUnique({ where: { id: matchId }, select: { tournamentId: true, venueId: true } });
+    if (!match) throw new BadRequestException("Partido no encontrado");
+    return this.requireModuleAccess(request, module, { tournamentId: match.tournamentId, venueId: match.venueId ?? undefined, write });
+  }
+
+  private allowedTournamentIds(user: Awaited<ReturnType<AppController["requireCurrentUser"]>>, module: PermissionModule, write: boolean) {
+    const modulePermissions = user.permissions.filter((permission) => (
+      permission.module === module
+      && (write ? permission.canWrite : permission.canRead)
+    ));
+    if (modulePermissions.some((permission) => !permission.tournamentId)) return "all" as const;
+    return new Set(modulePermissions.map((permission) => permission.tournamentId).filter(Boolean) as string[]);
+  }
+
+  private allowedVenueIds(user: Awaited<ReturnType<AppController["requireCurrentUser"]>>, module: PermissionModule, write: boolean) {
+    const modulePermissions = user.permissions.filter((permission) => (
+      permission.module === module
+      && (write ? permission.canWrite : permission.canRead)
+    ));
+    if (modulePermissions.some((permission) => !permission.venueId)) return "all" as const;
+    return new Set(modulePermissions.map((permission) => permission.venueId).filter(Boolean) as string[]);
+  }
+}
+
+function normalizePermissionInput(permissions: AdminPermissionDto[]) {
+  return permissions.map((permission) => ({
+    module: permission.module,
+    tournamentId: permission.tournamentId || undefined,
+    venueId: permission.venueId || undefined,
+    canRead: permission.canRead ?? true,
+    canWrite: permission.canWrite ?? true,
+  }));
+}
+
+function toPermissionPayload(permission: {
+  id: string;
+  module: PermissionModule;
+  tournamentId?: string | null;
+  venueId?: string | null;
+  canRead: boolean;
+  canWrite: boolean;
+  tournament?: { id: string; name: string } | null;
+  venue?: { id: string; name: string } | null;
+}) {
+  return {
+    id: permission.id,
+    module: permission.module,
+    tournamentId: permission.tournamentId ?? undefined,
+    tournamentName: permission.tournament?.name,
+    venueId: permission.venueId ?? undefined,
+    venueName: permission.venue?.name,
+    canRead: permission.canRead,
+    canWrite: permission.canWrite,
+  };
+}
+
+function toAdminUserPayload(user: {
+  id: string;
+  email: string;
+  name?: string | null;
+  role: AdminRole;
+  isActive: boolean;
+  mustChangePassword: boolean;
+  lastLoginAt?: Date | null;
+  createdAt: Date;
+  createdBy?: { id: string; email: string; name?: string | null } | null;
+  permissions: Array<Parameters<typeof toPermissionPayload>[0]>;
+}) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name ?? undefined,
+    role: user.role,
+    isActive: user.isActive,
+    mustChangePassword: user.mustChangePassword,
+    lastLoginAt: user.lastLoginAt?.toISOString(),
+    createdAt: user.createdAt.toISOString(),
+    createdBy: user.createdBy ? {
+      id: user.createdBy.id,
+      email: user.createdBy.email,
+      name: user.createdBy.name ?? undefined,
+    } : undefined,
+    permissions: user.permissions.map(toPermissionPayload),
+  };
 }
 
 function toDate(value?: Date | null) {
