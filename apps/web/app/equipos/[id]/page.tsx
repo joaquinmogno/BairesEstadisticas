@@ -136,11 +136,11 @@ export default function TeamPage() {
           {active === "resumen" ? (
             <>
               <SectionTitle title="Proximo partido" />
-              {nextMatch ? <MatchCard match={nextMatch} /> : <div className="p-4 text-sm font-bold text-slate-500">Sin proximo partido programado.</div>}
+              {nextMatch ? <MatchCard match={nextMatch} /> : <div className="p-4 text-sm font-bold text-slate-500">Sin proximo partido.</div>}
               <SectionTitle title="Ultimos partidos" />
               {lastMatches.map((match) => <MatchCard key={match.id} match={match} />)}
               <SectionTitle title="Posicion actual" />
-              <StandingTable rows={getTournamentStandings(team.tournamentId).slice(0, 6)} highlightTeamIds={[team.id]} />
+              <StandingTable rows={getTournamentStandings(team.tournamentId).slice(0, 6)} highlightTeamIds={[team.id]} showZones={false} />
               <div className="flex items-center justify-between gap-3 border-t border-slate-100 p-4 dark:border-white/10">
                 <span className="text-sm font-black uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">Racha</span>
                 <FormDots form={row?.form ?? []} />
@@ -165,7 +165,7 @@ export default function TeamPage() {
             </>
           ) : null}
           {active === "posiciones" ? (
-            <StandingTable rows={getTournamentStandings(team.tournamentId)} highlightTeamIds={[team.id]} />
+            <StandingTable rows={getTournamentStandings(team.tournamentId)} highlightTeamIds={[team.id]} showZones={false} />
           ) : null}
           {active === "plantel" ? (
             <div className="grid gap-3 p-4 sm:grid-cols-2">

@@ -140,7 +140,7 @@ export default function TournamentPage() {
                 )}
               </span>
               <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-[0.1em] text-emerald-300 sm:text-sm">{tournament.category} · {tournament.status}</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.1em] text-emerald-300 sm:text-sm">{tournament.category}</p>
                 <h1 className="mt-1 text-3xl font-black tracking-tight sm:mt-2 sm:text-5xl">{tournament.name}</h1>
                 <p className="mt-2 text-xs font-bold text-slate-300 sm:mt-3 sm:text-sm">{tournament.venue} · {tournament.rounds} fechas</p>
               </div>
@@ -258,7 +258,7 @@ function MatchdaySelector({
 
 function MatchList({ matches }: { matches: ReturnType<typeof getTournamentMatches> }) {
   if (!matches.length) {
-    return <div className="p-4"><EmptyStateCard title="Sin partidos para hoy" message="No hay partidos programados para la fecha de hoy en este torneo." /></div>;
+    return <div className="p-4"><EmptyStateCard title="Sin partidos para hoy" message="No hay partidos para la fecha de hoy en este torneo." /></div>;
   }
   return matches.map((match) => <MatchCard key={match.id} match={match} />);
 }
@@ -299,7 +299,10 @@ function PlayerStatTable({
   metric: "goals" | "assists" | "yellowCards" | "redCards";
   label: string;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const filteredPlayers = players.filter((player) => player[metric] > 0);
+  const visiblePlayers = filteredPlayers.slice(0, expanded ? 15 : 5);
+  const canExpand = filteredPlayers.length > 5;
 
   if (!filteredPlayers.length) {
     return (
@@ -312,7 +315,7 @@ function PlayerStatTable({
   return (
     <div className="px-4 pb-4">
       <div className="space-y-3 md:hidden">
-        {filteredPlayers.map((player) => {
+        {visiblePlayers.map((player) => {
           const team = getTeam(player.teamId);
           return (
             <Link key={`${metric}-${player.id}`} href={`/jugadores/${player.id}`} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 dark:border-white/10 dark:bg-white/5">
@@ -340,7 +343,7 @@ function PlayerStatTable({
             </tr>
           </thead>
           <tbody>
-            {filteredPlayers.map((player) => {
+            {visiblePlayers.map((player) => {
               const team = getTeam(player.teamId);
               return (
                 <tr key={`${metric}-${player.id}`} className="border-b border-slate-100 font-bold dark:border-white/10">
@@ -363,6 +366,15 @@ function PlayerStatTable({
           </tbody>
         </table>
       </div>
+      {canExpand ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className="mt-3 flex min-h-10 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+        >
+          {expanded ? "Ver menos" : "Ver más"}
+        </button>
+      ) : null}
     </div>
   );
 }

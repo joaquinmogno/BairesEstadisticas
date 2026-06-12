@@ -31,16 +31,6 @@ export default function ClubPage() {
     .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))[0];
   const lastMatches = matches.filter((match) => match.status === "finished").slice(0, 5);
   const players = uniqueBy(participations.flatMap((team) => getTeamPlayers(team.id)), (player) => player.id);
-  const standings = participations.map((team) => getTeamStanding(team.id)).filter(Boolean);
-  const totals = standings.reduce(
-    (acc, row) => ({
-      pj: acc.pj + (row?.pj ?? 0),
-      pts: acc.pts + (row?.pts ?? 0),
-      gf: acc.gf + (row?.gf ?? 0),
-      gc: acc.gc + (row?.gc ?? 0),
-    }),
-    { pj: 0, pts: 0, gf: 0, gc: 0 },
-  );
 
   return (
     <AppShell>
@@ -54,13 +44,8 @@ export default function ClubPage() {
               <div className="min-w-0">
                 <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-300">Ficha global del club</p>
                 <h1 className="mt-1 truncate text-3xl font-black tracking-tight sm:text-5xl">{club.name}</h1>
-                <p className="mt-2 text-sm font-bold text-slate-300">{participations.length} competiciones · {players.length} jugadores · DG {totals.gf - totals.gc}</p>
+                <p className="mt-2 text-sm font-bold text-slate-300">{participations.length} competiciones · {players.length} jugadores</p>
               </div>
-            </div>
-            <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-2xl bg-white/10 px-2 py-3"><p className="text-2xl font-black">{totals.pj}</p><p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/55">PJ</p></div>
-              <div className="rounded-2xl bg-white/10 px-2 py-3"><p className="text-2xl font-black">{totals.pts}</p><p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/55">PTS</p></div>
-              <div className="rounded-2xl bg-white/10 px-2 py-3"><p className="text-2xl font-black">{totals.gf}:{totals.gc}</p><p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/55">Goles</p></div>
             </div>
           </div>
         </Panel>

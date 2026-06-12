@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { ReactNode } from "react";
 import clsx from "clsx";
-import { CircleDot, Medal, Square, Ticket } from "lucide-react";
+import { CircleDot, Medal, Square } from "lucide-react";
 import {
   AppShell,
   Breadcrumbs,
@@ -230,7 +231,7 @@ function LineupList({
         {players.length ? players.map((player) => {
           const role = starters.includes(player.id) ? "Titular" : substitutes.includes(player.id) ? "Suplente" : "";
           return (
-            <div key={player.id} className="flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-3 dark:bg-white/5">
+            <Link key={player.id} href={`/jugadores/${player.id}`} className="flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-3 transition hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10">
               <Image src={player.photo} alt={player.name} width={48} height={48} unoptimized className="h-12 w-12 rounded-xl object-cover" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-black">{player.name}</p>
@@ -238,7 +239,7 @@ function LineupList({
                   #{player.number || "-"} · {player.position}{role ? ` · ${role}` : ""}
                 </p>
               </div>
-            </div>
+            </Link>
           );
         }) : (
           <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Sin jugadores cargados.</p>
@@ -330,7 +331,7 @@ function MatchEventsBoard({
           </div>
 
           <div className="mt-4 space-y-2">
-            <CardsStrip title="Amarillas" icon={<Ticket size={13} />} events={yellowCards} tone="yellow" />
+            <CardsStrip title="Amarillas" icon={<span className="block h-3 w-2 rounded-[1px] bg-amber-300" />} events={yellowCards} tone="yellow" />
             <CardsStrip title="Expulsiones" icon={<Square size={11} />} events={redCards} tone="red" />
           </div>
         </div>

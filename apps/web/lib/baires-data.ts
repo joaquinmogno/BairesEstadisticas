@@ -12,7 +12,7 @@ import type {
 
 export type MatchStatus = "finished" | "live" | "suspended" | "scheduled";
 export type EventType = "goal" | "assist" | "yellow" | "red" | "mvp";
-export type PlayerPosition = "Arquero" | "Defensor" | "Mediocampista" | "Delantero";
+export type PlayerPosition = "Arquero" | "Jugador";
 
 export type Team = {
   id: string;
@@ -433,10 +433,7 @@ function statsForPlayer(playerId: string, matchesData: Match[]) {
 }
 
 function normalizePosition(position?: string): PlayerPosition {
-  if (position === "Arquero" || position === "Defensor" || position === "Mediocampista" || position === "Delantero") {
-    return position;
-  }
-  return "Delantero";
+  return position?.trim().toLowerCase() === "arquero" ? "Arquero" : "Jugador";
 }
 
 function dateInAppTimeZone(value: Date) {
@@ -585,7 +582,7 @@ export function statusLabel(status: MatchStatus) {
     finished: "Finalizado",
     live: "En juego",
     suspended: "Suspendido",
-    scheduled: "Programado",
+    scheduled: "Por jugar",
   };
   return labels[status];
 }

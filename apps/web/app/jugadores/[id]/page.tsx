@@ -100,8 +100,8 @@ export default function PlayerPage() {
           {active === "resumen" ? (
             <>
               <SectionTitle title="Detalles del jugador" />
-              <div className="bg-[#101920] px-4 py-4 text-white">
-                <div className="grid grid-cols-2 gap-0 border-b border-white/10 pb-4 text-center">
+              <div className="bg-slate-50 px-4 py-4 text-slate-950 dark:bg-[#101920] dark:text-white">
+                <div className="grid grid-cols-2 gap-0 border-b border-slate-200 pb-4 text-center dark:border-white/10">
                   <PlayerDetail icon={<TeamBadge team={team} size="lg" />} value={team?.name ?? "-"} label="Equipo actual" />
                   <PlayerDetail icon={<Shirt size={26} />} value={`#${player.number}`} label="Dorsal" withDivider />
                 </div>
@@ -111,15 +111,15 @@ export default function PlayerPage() {
                 </div>
               </div>
               <SectionTitle title="Estadisticas" />
-              <div className="bg-[#101920] text-white">
-                <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+              <div className="bg-slate-50 text-slate-950 dark:bg-[#101920] dark:text-white">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-white/10">
                   <div className="flex min-w-0 items-center gap-2">
                     <Trophy size={20} className="text-amber-300" />
                     <span className="truncate text-sm font-black">{tournament?.name}</span>
                   </div>
-                  <span className="text-xs font-bold text-slate-400">Temporada actual</span>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Temporada actual</span>
                 </div>
-                <div className="grid grid-cols-3 border-b border-white/10">
+                <div className="grid grid-cols-3 border-b border-slate-200 dark:border-white/10">
                   <PlayerStatIcon icon={<BadgeCheck size={28} className="text-lime-400" />} value={`${player.appearances}`} label="Apariciones" />
                   <PlayerStatIcon icon={<Goal size={28} />} value={`${player.goals}`} label="Goles" withDivider />
                   <PlayerStatIcon icon={<Handshake size={28} className="text-sky-400" />} value={`${player.assists}`} label="Asistencias" withDivider />
@@ -205,20 +205,20 @@ function playerCompetitionStats(appearances: ReturnType<typeof getPlayerAppearan
 
 function PlayerDetail({ icon, value, label, withDivider = false }: { icon: React.ReactNode; value: string; label: string; withDivider?: boolean }) {
   return (
-    <div className={`min-w-0 px-3 ${withDivider ? "border-l border-white/10" : ""}`}>
+    <div className={`min-w-0 px-3 ${withDivider ? "border-l border-slate-200 dark:border-white/10" : ""}`}>
       <div className="flex h-11 items-center justify-center">{icon}</div>
       <p className="mt-1 truncate text-xl font-black">{value}</p>
-      <p className="mt-1 truncate text-sm font-bold text-slate-400">{label}</p>
+      <p className="mt-1 truncate text-sm font-bold text-slate-500 dark:text-slate-400">{label}</p>
     </div>
   );
 }
 
 function PlayerStatIcon({ icon, value, label, withDivider = false }: { icon: React.ReactNode; value: string; label: string; withDivider?: boolean }) {
   return (
-    <div className={`flex min-h-36 min-w-0 flex-col items-center justify-center px-2 py-5 text-center ${withDivider ? "border-l border-white/10" : ""}`}>
+    <div className={`flex min-h-36 min-w-0 flex-col items-center justify-center px-2 py-5 text-center ${withDivider ? "border-l border-slate-200 dark:border-white/10" : ""}`}>
       <div className="flex h-9 items-center justify-center">{icon}</div>
       <p className="mt-3 text-xl font-black tabular-nums">{value}</p>
-      <p className="mt-1 text-sm font-bold text-white">{label}</p>
+      <p className="mt-1 text-sm font-bold text-slate-600 dark:text-white">{label}</p>
     </div>
   );
 }

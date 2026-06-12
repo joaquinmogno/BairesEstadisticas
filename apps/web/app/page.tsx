@@ -105,7 +105,6 @@ export default function Home() {
           <Panel>
             <div className="p-4">
               <EmptyState title="Sin partidos" text="Todavía no se publicaron partidos para esta fecha." />
-              <Link href="/" className="mx-auto mt-3 flex min-h-10 w-fit items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-black text-white">Ver próximos partidos</Link>
             </div>
           </Panel>
         )}
@@ -124,9 +123,9 @@ function DateMatchHeader({ selectedDate, onChangeDate, today, yesterday, tomorro
   }
 
   return (
-    <section className="relative overflow-visible rounded-lg border border-slate-800 bg-[#101920] shadow-sm">
-      <div className="grid h-14 grid-cols-[52px_minmax(0,1fr)_52px] items-center bg-[#121d24] text-white sm:grid-cols-[60px_minmax(0,1fr)_60px]">
-        <button type="button" onClick={() => move(-1)} className="flex h-full items-center justify-center transition hover:bg-white/5" aria-label="Dia anterior">
+    <section className="relative overflow-visible rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-[#101920]">
+      <div className="grid h-14 grid-cols-[52px_minmax(0,1fr)_52px] items-center bg-slate-50 text-slate-950 dark:bg-[#121d24] dark:text-white sm:grid-cols-[60px_minmax(0,1fr)_60px]">
+        <button type="button" onClick={() => move(-1)} className="flex h-full items-center justify-center transition hover:bg-slate-100 dark:hover:bg-white/5" aria-label="Dia anterior">
           <ChevronLeft size={24} strokeWidth={3} />
         </button>
         <button
@@ -138,7 +137,7 @@ function DateMatchHeader({ selectedDate, onChangeDate, today, yesterday, tomorro
           <span className="truncate">{dateTitle(selectedDate, today, yesterday, tomorrow)}</span>
           {openCalendar ? <ChevronUp size={18} strokeWidth={3} /> : <ChevronDown size={18} strokeWidth={3} />}
         </button>
-        <button type="button" onClick={() => move(1)} className="flex h-full items-center justify-center transition hover:bg-white/5" aria-label="Dia siguiente">
+        <button type="button" onClick={() => move(1)} className="flex h-full items-center justify-center transition hover:bg-slate-100 dark:hover:bg-white/5" aria-label="Dia siguiente">
           <ChevronRight size={24} strokeWidth={3} />
         </button>
       </div>
@@ -159,14 +158,14 @@ function CalendarDropdown({ selectedDate, today, onSelect }: { selectedDate: str
   const blanks = Array.from({ length: mondayOffset });
 
   return (
-    <div className="absolute left-1/2 top-14 z-30 w-[min(390px,calc(100vw-32px))] -translate-x-1/2 border border-black/40 bg-[#101920] px-5 pb-5 pt-4 text-white shadow-2xl sm:px-6">
+    <div className="absolute left-1/2 top-14 z-30 w-[min(390px,calc(100vw-32px))] -translate-x-1/2 border border-slate-200 bg-white px-5 pb-5 pt-4 text-slate-950 shadow-2xl dark:border-black/40 dark:bg-[#101920] dark:text-white sm:px-6">
       <div className="mb-5 grid grid-cols-[40px_minmax(0,1fr)_40px] items-center">
         <ChevronLeft className="justify-self-start" size={24} strokeWidth={3} />
         <p className="text-center text-sm font-black">{monthLabel(selected)}</p>
         <ChevronRight className="justify-self-end" size={24} strokeWidth={3} />
       </div>
       <div className="grid grid-cols-7 gap-y-3 text-center text-xs font-bold">
-        {["lu", "ma", "mi", "ju", "vi", "sa", "do"].map((day) => <span key={day} className="text-slate-400">{day}</span>)}
+        {["lu", "ma", "mi", "ju", "vi", "sa", "do"].map((day) => <span key={day} className="text-slate-500 dark:text-slate-400">{day}</span>)}
         {blanks.map((_, index) => <span key={`blank-${index}`} />)}
         {Array.from({ length: days }, (_, index) => {
           const day = index + 1;
@@ -177,14 +176,14 @@ function CalendarDropdown({ selectedDate, today, onSelect }: { selectedDate: str
               key={date}
               type="button"
               onClick={() => onSelect(date)}
-              className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full text-xs font-black transition ${selectedDay ? "bg-blue-500 text-white" : "text-white hover:bg-white/10"}`}
+              className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full text-xs font-black transition ${selectedDay ? "bg-emerald-600 text-white" : "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-white/10"}`}
             >
               {day}
             </button>
           );
         })}
       </div>
-      <button type="button" onClick={() => onSelect(today)} className="mx-auto mt-5 block text-sm font-black text-blue-500">Hoy</button>
+      <button type="button" onClick={() => onSelect(today)} className="mx-auto mt-5 block text-sm font-black text-emerald-600 dark:text-emerald-300">Hoy</button>
     </div>
   );
 }
@@ -192,10 +191,10 @@ function CalendarDropdown({ selectedDate, today, onSelect }: { selectedDate: str
 function LeagueMatches({ tournamentId, leagueMatches }: { tournamentId: string; leagueMatches: Match[] }) {
   const tournament = getTournament(tournamentId);
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-800 bg-[#101920] shadow-sm">
-      <Link href={`/torneos/${tournamentId}`} className="flex items-center gap-3 bg-[#121d24] px-3 py-3 text-white transition hover:bg-[#17242d]">
-        <Star size={22} className="shrink-0 text-blue-500" />
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-black/50 ring-1 ring-white/10">
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-[#101920]">
+      <Link href={`/torneos/${tournamentId}`} className="flex items-center gap-3 bg-slate-50 px-3 py-3 text-slate-950 transition hover:bg-slate-100 dark:bg-[#121d24] dark:text-white dark:hover:bg-[#17242d]">
+        <Star size={22} className="shrink-0 text-emerald-600 dark:text-blue-500" />
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200 ring-1 ring-slate-300 dark:bg-black/50 dark:ring-white/10">
           {tournament?.logo ? (
             <Image src={tournament.logo} alt={tournament.name} width={40} height={40} unoptimized className="h-full w-full object-cover" />
           ) : (
@@ -204,11 +203,11 @@ function LeagueMatches({ tournamentId, leagueMatches }: { tournamentId: string; 
         </span>
         <div className="min-w-0">
           <p className="truncate text-base font-black">{tournament?.name}</p>
-          <p className="text-sm font-bold text-slate-400">Argentina</p>
+          <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Argentina</p>
         </div>
       </Link>
       {leagueMatches.map((match) => <ScoreRow key={match.id} match={match} />)}
-      <Link href={`/torneos/${tournamentId}`} className="block border-t border-black/40 bg-[#121d24] px-4 py-3 text-center text-sm font-black text-blue-400 transition hover:bg-[#17242d]">
+      <Link href={`/torneos/${tournamentId}`} className="block border-t border-slate-200 bg-slate-50 px-4 py-3 text-center text-sm font-black text-emerald-700 transition hover:bg-slate-100 dark:border-black/40 dark:bg-[#121d24] dark:text-blue-400 dark:hover:bg-[#17242d]">
         Ir a seccion {tournament?.name}
       </Link>
     </section>
@@ -220,7 +219,7 @@ function ScoreRow({ match, highlight = false }: { match: Match; highlight?: bool
   const away = getTeam(match.awayTeamId);
   const middle = match.status === "scheduled" || match.status === "suspended" ? match.time : `${match.homeScore ?? 0}-${match.awayScore ?? 0}`;
   return (
-    <Link href={`/partidos/${match.id}`} className={`block border-t border-black/40 px-2 py-3 text-white transition hover:bg-[#17242d] sm:px-3 ${highlight ? "bg-emerald-950/50" : "bg-[#101920]"}`}>
+    <Link href={`/partidos/${match.id}`} className={`block border-t border-slate-200 px-2 py-3 text-slate-950 transition hover:bg-slate-50 dark:border-black/40 dark:text-white dark:hover:bg-[#17242d] sm:px-3 ${highlight ? "bg-emerald-50 dark:bg-emerald-950/50" : "bg-white dark:bg-[#101920]"}`}>
       <div className="grid grid-cols-[minmax(0,1fr)_58px_minmax(0,1fr)] items-center gap-2">
         <div className="flex min-w-0 items-center justify-end gap-1.5 text-right sm:gap-2">
           <span className="min-w-0 truncate text-sm font-bold sm:text-base">{home?.name}</span>
@@ -232,7 +231,7 @@ function ScoreRow({ match, highlight = false }: { match: Match; highlight?: bool
           <span className="min-w-0 truncate text-sm font-bold sm:text-base">{away?.name}</span>
         </div>
       </div>
-      <div className={`mt-2 text-center text-xs font-bold ${match.status === "live" ? "text-emerald-300" : "text-slate-400"}`}>{dateLabel(match.date)} · {statusLabel(match.status)}</div>
+      <div className={`mt-2 text-center text-xs font-bold ${match.status === "live" ? "text-emerald-600 dark:text-emerald-300" : "text-slate-500 dark:text-slate-400"}`}>{dateLabel(match.date)} · {statusLabel(match.status)}</div>
     </Link>
   );
 }

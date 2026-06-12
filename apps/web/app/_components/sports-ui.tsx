@@ -34,7 +34,6 @@ import {
   goalDifference,
   statusLabel,
   statusTone,
-  teamRecord,
   useBairesData,
   type Match,
   type Player,
@@ -71,8 +70,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl dark:border-white/10 dark:bg-[#111820]/90">
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex min-w-0 items-center gap-3">
-            <span className="flex h-12 w-[138px] shrink-0 items-center justify-center overflow-hidden rounded-xl bg-black/90 px-2 shadow-sm dark:bg-black sm:w-[150px]">
-              <Image src="/baires-torneos-logo.png" alt="Baires Torneos" width={150} height={60} priority className="h-full w-full object-contain" />
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-black">
+              <Image src="/baires-torneos-logo.png" alt="Baires Torneos" width={48} height={48} priority className="h-full w-full object-contain" />
             </span>
             <span className="min-w-0">
               <span className="block truncate text-lg font-black tracking-tight">Baires Torneos</span>
@@ -265,7 +264,7 @@ function TeamLine({ team, reverse = false }: { team?: Team; reverse?: boolean })
   );
 }
 
-export function StandingTable({ rows, highlightTeamIds = [], showZones = true }: { rows: Standing[]; highlightTeamIds?: string[]; showZones?: boolean }) {
+export function StandingTable({ rows, highlightTeamIds = [], showZones = false }: { rows: Standing[]; highlightTeamIds?: string[]; showZones?: boolean }) {
   useBairesData();
   const router = useRouter();
   const zones = standingZones(rows.length);
@@ -275,11 +274,12 @@ export function StandingTable({ rows, highlightTeamIds = [], showZones = true }:
   }
 
   return (
-    <div className="overflow-x-auto bg-[#05090d] [scrollbar-color:#64748b_#05090d] [scrollbar-width:thin]">
-      <table className="w-full min-w-[620px] table-fixed text-[11px] sm:min-w-[760px] sm:text-[13px]">
+    <div className="overflow-x-auto bg-white [scrollbar-color:#94a3b8_#f8fafc] [scrollbar-width:thin] dark:bg-[#05090d] dark:[scrollbar-color:#64748b_#05090d]">
+      <table className="w-full min-w-[660px] table-fixed text-[11px] sm:min-w-[790px] sm:text-[13px]">
         <colgroup>
           <col className="w-[30px] sm:w-[42px]" />
-          <col className="w-[200px] sm:w-[240px]" />
+          <col className="w-[44px] sm:w-[52px]" />
+          <col className="w-[170px] sm:w-[220px]" />
           <col className="w-[42px] sm:w-[56px]" />
           <col className="w-[36px] sm:w-[44px]" />
           <col className="w-[36px] sm:w-[44px]" />
@@ -289,10 +289,11 @@ export function StandingTable({ rows, highlightTeamIds = [], showZones = true }:
           <col className="w-[36px] sm:w-[44px]" />
           <col className="w-[144px] sm:w-[180px]" />
         </colgroup>
-        <thead className="border-b border-black bg-[#111b20] text-[10px] font-black text-slate-400 sm:uppercase sm:tracking-[0.12em]">
+        <thead className="border-b border-slate-200 bg-slate-100 text-[10px] font-black text-slate-500 dark:border-black dark:bg-[#111b20] dark:text-slate-400 sm:uppercase sm:tracking-[0.12em]">
           <tr className="h-9 sm:h-10">
-            <th className="sticky left-0 z-30 bg-[#111b20] px-2 text-left shadow-[6px_0_0_0_#111b20]"></th>
-            <th className="sticky left-[30px] z-30 bg-[#111b20] px-2 text-left shadow-[6px_0_0_0_#111b20] sm:left-[42px]">Equipo</th>
+            <th className="sticky left-0 z-30 bg-slate-100 px-2 text-left shadow-[6px_0_0_0_#f1f5f9] dark:bg-[#111b20] dark:shadow-[6px_0_0_0_#111b20]"></th>
+            <th className="sticky left-[30px] z-30 bg-slate-100 px-2 text-left shadow-[6px_0_0_0_#f1f5f9] dark:bg-[#111b20] dark:shadow-[6px_0_0_0_#111b20] sm:left-[42px]"></th>
+            <th className="px-2 text-left">Equipo</th>
             <th className="px-1 text-center">PTS</th>
             <th className="px-1 text-center">J</th>
             <th className="px-1 text-center">G</th>
@@ -303,7 +304,7 @@ export function StandingTable({ rows, highlightTeamIds = [], showZones = true }:
             <th className="px-1 text-center">Ultimas</th>
           </tr>
         </thead>
-        <tbody className="bg-[#0b1116]">
+        <tbody className="bg-white dark:bg-[#0b1116]">
           {rows.map((row) => {
             const team = getTeam(row.teamId);
             const active = highlightTeamIds.includes(row.teamId);
@@ -321,25 +322,29 @@ export function StandingTable({ rows, highlightTeamIds = [], showZones = true }:
                   }
                 }}
                 className={clsx(
-                  "cursor-pointer border-b border-white/5 font-bold text-white transition hover:bg-white/5",
+                  "cursor-pointer border-b border-slate-100 font-bold text-slate-800 transition hover:bg-slate-50 dark:border-white/5 dark:text-white dark:hover:bg-white/5",
                   showZones && zone.rowTone,
-                  active && "ring-1 ring-inset ring-emerald-400/60",
+                  active && "ring-1 ring-inset ring-slate-400/70 dark:ring-white/45",
                 )}
               >
-                <td className="sticky left-0 z-20 bg-[#0b1116] px-2 py-2.5 text-center font-black tabular-nums text-slate-200 shadow-[6px_0_0_0_#0b1116] sm:py-3">{row.position}</td>
-                <td className="sticky left-[30px] z-20 bg-[#0b1116] px-2 py-2.5 shadow-[6px_0_0_0_#0b1116] sm:left-[42px] sm:py-3">
-                  <Link href={`/equipos/${row.teamId}`} className="flex min-w-0 items-center gap-2" onClick={(event) => event.stopPropagation()}>
+                <td className="sticky left-0 z-20 bg-white px-2 py-2.5 text-center font-black tabular-nums text-slate-700 shadow-[6px_0_0_0_#ffffff] dark:bg-[#0b1116] dark:text-slate-200 dark:shadow-[6px_0_0_0_#0b1116] sm:py-3">{row.position}</td>
+                <td className="sticky left-[30px] z-20 bg-white px-2 py-2.5 shadow-[6px_0_0_0_#ffffff] dark:bg-[#0b1116] dark:shadow-[6px_0_0_0_#0b1116] sm:left-[42px] sm:py-3">
+                  <Link href={`/equipos/${row.teamId}`} className="flex justify-center" aria-label={team?.name ?? "Equipo"} onClick={(event) => event.stopPropagation()}>
                     <TeamBadge team={team} size="sm" />
-                    <span className="min-w-0 truncate text-[12px] font-bold sm:text-[14px] sm:font-black">{team?.name}</span>
                   </Link>
                 </td>
-                <td className="px-1 py-2.5 text-center text-[12px] font-black tabular-nums text-white sm:py-3 sm:text-[15px]">{row.pts}</td>
-                <td className="px-1 py-2.5 text-center tabular-nums text-slate-200 sm:py-3">{row.pj}</td>
-                <td className="px-1 py-2.5 text-center tabular-nums text-slate-200 sm:py-3">{row.pg}</td>
-                <td className="px-1 py-2.5 text-center tabular-nums text-slate-200 sm:py-3">{goalDifference(row)}</td>
-                <td className="px-1 py-2.5 text-center tabular-nums text-slate-200 sm:py-3">{row.gf}:{row.gc}</td>
-                <td className="px-1 py-2.5 text-center tabular-nums text-slate-200 sm:py-3">{row.pe}</td>
-                <td className="px-1 py-2.5 text-center tabular-nums text-slate-200 sm:py-3">{row.pp}</td>
+                <td className="px-2 py-2.5 sm:py-3">
+                  <Link href={`/equipos/${row.teamId}`} className="block min-w-0 truncate text-[12px] font-bold hover:text-slate-950 dark:hover:text-white sm:text-[14px] sm:font-black" onClick={(event) => event.stopPropagation()}>
+                    {team?.name}
+                  </Link>
+                </td>
+                <td className="px-1 py-2.5 text-center text-[12px] font-black tabular-nums text-slate-950 dark:text-white sm:py-3 sm:text-[15px]">{row.pts}</td>
+                <td className="px-1 py-2.5 text-center tabular-nums text-slate-700 dark:text-slate-200 sm:py-3">{row.pj}</td>
+                <td className="px-1 py-2.5 text-center tabular-nums text-slate-700 dark:text-slate-200 sm:py-3">{row.pg}</td>
+                <td className="px-1 py-2.5 text-center tabular-nums text-slate-700 dark:text-slate-200 sm:py-3">{goalDifference(row)}</td>
+                <td className="px-1 py-2.5 text-center tabular-nums text-slate-700 dark:text-slate-200 sm:py-3">{row.gf}:{row.gc}</td>
+                <td className="px-1 py-2.5 text-center tabular-nums text-slate-700 dark:text-slate-200 sm:py-3">{row.pe}</td>
+                <td className="px-1 py-2.5 text-center tabular-nums text-slate-700 dark:text-slate-200 sm:py-3">{row.pp}</td>
                 <td className="px-1 py-2.5 sm:py-3">
                   <FormTrail form={row.form} />
                 </td>
@@ -514,7 +519,7 @@ function WhatsAppShareButton({ text }: { text: string }) {
       className="inline-flex min-h-9 items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 text-xs font-black text-white transition hover:bg-white/15"
     >
       <MessageCircle size={16} />
-      WhatsApp
+      Compartir por WhatsApp
     </button>
   );
 }
@@ -650,7 +655,6 @@ export function QuickAccess() {
 export function TeamHero({ team }: { team: Team }) {
   useBairesData();
   const tournament = getTournament(team.tournamentId);
-  const row = teamRecord(team.id);
   return (
     <Panel>
       <div className="p-5 text-center sm:p-6">
@@ -661,24 +665,9 @@ export function TeamHero({ team }: { team: Team }) {
           <TeamBadge team={team} size="xl" />
           <p className="mt-4 text-sm font-black uppercase tracking-[0.1em] text-emerald-600 dark:text-emerald-300">{team.category} · {tournament?.name}</p>
           <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950 dark:text-white sm:text-5xl">{team.name}</h1>
-          <div className="mt-5 grid w-full grid-cols-4 gap-2">
-            <TeamMetric label="PTS" value={row.pts} />
-            <TeamMetric label="PJ" value={row.pj} />
-            <TeamMetric label="GF" value={row.gf} />
-            <TeamMetric label="DG" value={goalDifference(row)} />
-          </div>
         </div>
       </div>
     </Panel>
-  );
-}
-
-function TeamMetric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg bg-slate-50 p-3 dark:bg-white/5">
-      <p className="text-xl font-black tabular-nums">{value}</p>
-      <p className="text-[11px] font-black text-slate-500 dark:text-slate-400">{label}</p>
-    </div>
   );
 }
 
